@@ -1,0 +1,31 @@
+name: Fix Texture Folder Structure
+
+on:
+  workflow_dispatch: # Allows you to trigger this manually from your phone's browser
+
+jobs:
+  move-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Restructure Folders
+        run: |
+          # 1. Move the deep textures folder to a temporary spot
+          git mv textures/resourcepacks/textures temp_textures
+          
+          # 2. Remove the old messy directory structure
+          git rm -r textures
+          
+          # 3. Rename the temporary folder to the clean root 'textures'
+          git mv temp_textures textures
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@://github.com"
+          git add textures
+          git commit -m "Automated fix: Flattened textures folder structure"
+          git push
+
