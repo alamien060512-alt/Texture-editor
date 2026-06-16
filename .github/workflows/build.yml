@@ -1,11 +1,49 @@
-- name: Copy all game textures to root for web editor
+name: Deploy Texture Editor
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps: deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Copy All Game Textures to Root
         run: |
-          # Check if the deep textures directory exists
           if [ -d "textures/resource_pack/textures" ]; then
-            echo "Copying textures to root folder..."
-            # Copy all folders and files from inside the deep textures folder into the root
-            cp -r textures/resource_pack/textures/* ./
+            cd textures/resource_pack/textures
+            cp -r . ../../../
+            cd ../../../
           else
-            echo "Error: Texture folder path not found!"
+            echo "Texture source path not found!"
             exit 1
           fi
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
