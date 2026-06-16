@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MC Bedrock Texture Editor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#1a1a1f;--bg2:#222228;--bg3:#2a2a32;--bg4:#32323c;
+  --border:#3a3a48;--border2:#4a4a5a;
+  --text:#e8e8f0;--text2:#a0a0b8;--text3:#6060788;
+  --green:#4ade80;--green2:#166534;
+  --blue:#60a5fa;--blue2:#1e40af;
+  --red:#f87171;--accent:#7c3aed;--accent2:#a78bfa;
+  --canvas-bg:#111118;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:13px}
+
+/* TOP BAR */
+#topbar{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+#topbar h1{font-size:15px;font-weight:700;color:var(--accent2);white-space:nowrap;letter-spacing:.5px}
+#topbar h1 span{color:var(--text2);font-weight:400;font-size:12px;margin-left:6px}
+.topbtn{padding:5px 11px;border-radius:5px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:12px;transition:all .15s;white-space:nowrap}
+.topbtn:hover{background:var(--bg4);border-color:var(--accent2)}
+.topbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.topbtn.primary:hover{background:#6d28d9}
+.topbtn.success{background:#166534;border-color:var(--green2);color:var(--green)}
+.topbtn.success:hover{background:#15803d}
+#topbar-spacer{flex:1}
+
+/* MAIN LAYOUT */
+#main{display:flex;flex:1;overflow:hidden}
+
+/* LEFT PANEL - texture browser */
+#left{width:220px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#left-header{padding:8px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+#search{width:100%;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none}
+#search:focus{border-color:var(--accent2)}
+#cat-tabs{display:flex;flex-wrap:wrap;gap:3px;padding:6px 8px;border-bottom:1px solid var(--border);flex-shrink:0}
+.cat-tab{padding:3px 7px;border-radius:3px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;transition:all .1s}
+.cat-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.cat-tab:hover:not(.active){background:var(--bg3)}
+#texture-list{flex:1;overflow-y:auto;padding:4px}
+#texture-list::-webkit-scrollbar{width:4px}
+#texture-list::-webkit-scrollbar-track{background:transparent}
+#texture-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.tex-item{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:4px;cursor:pointer;border:1px solid transparent;transition:all .1s}
+.tex-item:hover{background:var(--bg3);border-color:var(--border)}
+.tex-item.active{background:var(--bg4);border-color:var(--accent);color:var(--accent2)}
+.tex-thumb{width:28px;height:28px;image-rendering:pixelated;border-radius:3px;background:var(--bg3);flex-shrink:0;border:1px solid var(--border)}
+.tex-name{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)}
+.tex-item.active .tex-name{color:var(--accent2)}
+#tex-count{font-size:11px;color:var(--text2);padding:4px 8px;flex-shrink:0;border-top:1px solid var(--border)}
+
+/* CENTER - canvas editor */
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--canvas-bg)}
+#editor-toolbar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.tool-btn{width:32px;height:32px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .1s;flex-shrink:0}
+.tool-btn:hover{background:var(--bg4);border-color:var(--border2)}
+.tool-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tool-sep{width:1px;height:24px;background:var(--border);flex-shrink:0;margin:0 2px}
+#zoom-label{font-size:11px;color:var(--text2);white-space:nowrap;min-width:36px;text-align:center}
+#canvas-wrap{flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
+#canvas-bg-check{position:absolute;inset:0;background-image:linear-gradient(45deg,#2a2a3a 25%,transparent 25%),linear-gradient(-45deg,#2a2a3a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#2a2a3a 75%),linear-gradient(-45deg,transparent 75%,#2a2a3a 75%);background-size:16px 16px;background-position:0 0,0 8px,8px -8px,-8px 0px;pointer-events:none}
+#main-canvas{image-rendering:pixelated;cursor:crosshair;position:relative;z-index:1;box-shadow:0 0 0 1px var(--border2)}
+#overlay-canvas{position:absolute;image-rendering:pixelated;cursor:crosshair;z-index:2;pointer-events:none}
+#no-texture{position:absolute;text-align:center;color:var(--text2)}
+#no-texture p{font-size:14px;margin-bottom:6px}
+#no-texture small{font-size:12px;color:var(--text3)}
+
+/* RIGHT PANEL */
+#right{width:200px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#right section{border-bottom:1px solid var(--border);padding:8px 10px;flex-shrink:0}
+#right section h3{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+
+/* Color picker */
+#color-preview{width:100%;height:36px;border-radius:4px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;position:relative}
+#color-hex{width:100%;padding:4px 7px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;font-family:monospace;margin-bottom:6px}
+#color-hex:focus{outline:none;border-color:var(--accent2)}
+.slider-row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+.slider-row label{font-size:11px;color:var(--text2);width:12px}
+.slider-row input[type=range]{flex:1;accent-color:var(--accent)}
+.slider-row span{font-size:11px;color:var(--text2);width:24px;text-align:right}
+
+/* Palette */
+#palette-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;margin-bottom:6px}
+.pal-swatch{width:100%;aspect-ratio:1;border-radius:2px;cursor:pointer;border:1px solid transparent;transition:all .1s}
+.pal-swatch:hover,.pal-swatch.active{border-color:var(--accent2);transform:scale(1.1)}
+#add-pal-btn{width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--text2);cursor:pointer;font-size:11px}
+#add-pal-btn:hover{background:var(--bg4)}
+
+/* Pixel info */
+#px-info{font-size:11px;color:var(--text2);line-height:1.8}
+#px-info span{color:var(--text);font-family:monospace}
+
+/* History */
+#history-list{max-height:80px;overflow-y:auto;font-size:11px;color:var(--text2)}
+
+/* Pack metadata panel */
+#meta-panel{padding:8px 10px;overflow-y:auto;flex:1}
+#meta-panel h3{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px}
+.meta-field{margin-bottom:8px}
+.meta-field label{display:block;font-size:11px;color:var(--text2);margin-bottom:3px}
+.meta-field input,.meta-field textarea{width:100%;padding:5px 7px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;outline:none;font-family:inherit}
+.meta-field input:focus,.meta-field textarea:focus{border-color:var(--accent2)}
+.meta-field textarea{resize:vertical;min-height:50px;font-size:11px}
+#uuid-btn{width:100%;padding:4px;background:var(--bg3);border:1px solid var(--border);border-radius:3px;color:var(--text2);cursor:pointer;font-size:11px;margin-top:3px}
+#uuid-btn:hover{background:var(--bg4)}
+
+/* Status bar */
+#statusbar{padding:3px 10px;background:var(--bg2);border-top:1px solid var(--border);font-size:11px;color:var(--text2);flex-shrink:0;display:flex;gap:12px}
+#statusbar span{color:var(--text)}
+
+/* Toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px 16px;font-size:12px;opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Hidden file input */
+#real-color-input{position:absolute;opacity:0;pointer-events:none;width:0;height:0}
+
+/* Eye dropper cursor */
+body.dropper-mode #main-canvas{cursor:crosshair!important}
+body.dropper-mode #main-canvas::after{content:''}
+
+/* Grid overlay toggle */
+.grid-on #overlay-canvas{opacity:1}
+.grid-off #overlay-canvas{opacity:0}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>🟩 Bedrock Texture Editor <span>v1.26.20.4</span></h1>
+  <div id="topbar-spacer"></div>
+  <button class="topbtn" onclick="showMeta()">📦 Pack Info</button>
+  <button class="topbtn" onclick="undoAction()" title="Undo (Ctrl+Z)">↩ Undo</button>
+  <button class="topbtn" onclick="redoAction()" title="Redo (Ctrl+Y)">↪ Redo</button>
+  <button class="topbtn" onclick="clearCanvas()" title="Clear to transparent">🗑 Clear</button>
+  <button class="topbtn" onclick="importTexture()" title="Import PNG">📂 Import</button>
+  <button class="topbtn success" onclick="exportMcpack()">📦 Export .mcpack</button>
+  <input type="file" id="import-file" accept="image/png" style="display:none" onchange="loadImportedFile(event)">
+</div>
+
+<div id="main">
+  <!-- LEFT: Texture browser -->
+  <div id="left">
+    <div id="left-header">
+      <input id="search" type="text" placeholder="🔍 Search textures..." oninput="filterTextures()">
+    </div>
+    <div id="cat-tabs"></div>
+    <div id="texture-list"></div>
+    <div id="tex-count">Loading...</div>
+  </div>
+
+  <!-- CENTER: Canvas -->
+  <div id="center">
+    <div id="editor-toolbar">
+      <button class="tool-btn active" id="tool-pencil" onclick="setTool('pencil')" title="Pencil (P)">✏️</button>
+      <button class="tool-btn" id="tool-eraser" onclick="setTool('eraser')" title="Eraser (E)">⬜</button>
+      <button class="tool-btn" id="tool-fill" onclick="setTool('fill')" title="Fill (F)">🪣</button>
+      <button class="tool-btn" id="tool-dropper" onclick="setTool('dropper')" title="Eye Dropper (D)">🔍</button>
+      <button class="tool-btn" id="tool-rect" onclick="setTool('rect')" title="Rectangle (R)">▭</button>
+      <button class="tool-btn" id="tool-line" onclick="setTool('line')" title="Line (L)">╱</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" id="grid-btn" onclick="toggleGrid()" title="Toggle grid">⊞</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" onclick="changeZoom(-1)" title="Zoom out">−</button>
+      <div id="zoom-label">8x</div>
+      <button class="tool-btn" onclick="changeZoom(1)" title="Zoom in">+</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" onclick="flipH()" title="Flip horizontal">↔</button>
+      <button class="tool-btn" onclick="flipV()" title="Flip vertical">↕</button>
+      <button class="tool-btn" onclick="rotCW()" title="Rotate 90° CW">↻</button>
+    </div>
+    <div id="canvas-wrap">
+      <div id="canvas-bg-check"></div>
+      <canvas id="main-canvas"></canvas>
+      <canvas id="overlay-canvas"></canvas>
+      <div id="no-texture"><p>← Select a texture to edit</p><small>or import a PNG file</small></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Tools -->
+  <div id="right">
+    <section>
+      <h3>Color</h3>
+      <div id="color-preview" onclick="openColorPicker()"></div>
+      <input id="color-hex" type="text" value="#FF5500" oninput="hexChanged()" placeholder="#RRGGBB">
+      <input id="real-color-input" type="color" value="#ff5500" oninput="nativeColorChanged()">
+      <div class="slider-row"><label>R</label><input type="range" id="sl-r" min="0" max="255" value="255" oninput="sliderChanged()"><span id="lbl-r">255</span></div>
+      <div class="slider-row"><label>G</label><input type="range" id="sl-g" min="0" max="255" value="85" oninput="sliderChanged()"><span id="lbl-g">85</span></div>
+      <div class="slider-row"><label>B</label><input type="range" id="sl-b" min="0" max="255" value="0" oninput="sliderChanged()"><span id="lbl-b">0</span></div>
+      <div class="slider-row"><label>A</label><input type="range" id="sl-a" min="0" max="255" value="255" oninput="sliderChanged()"><span id="lbl-a">255</span></div>
+    </section>
+
+    <section>
+      <h3>Palette</h3>
+      <div id="palette-grid"></div>
+      <button id="add-pal-btn" onclick="addToPalette()">+ Add current color</button>
+    </section>
+
+    <section>
+      <h3>Brush</h3>
+      <div class="slider-row">
+        <label>Sz</label>
+        <input type="range" id="brush-size" min="1" max="16" value="1" oninput="document.getElementById('lbl-brush').textContent=this.value">
+        <span id="lbl-brush">1</span>
+      </div>
+    </section>
+
+    <section>
+      <h3>Pixel Info</h3>
+      <div id="px-info">
+        X: <span id="px-x">-</span> Y: <span id="px-y">-</span><br>
+        RGBA: <span id="px-rgba">-</span><br>
+        Hex: <span id="px-hex">-</span>
+      </div>
+    </section>
+
+    <div id="meta-panel" style="display:none">
+      <h3>Pack Metadata</h3>
+      <div class="meta-field">
+        <label>Pack Name</label>
+        <input type="text" id="pack-name" value="My Texture Pack">
+      </div>
+      <div class="meta-field">
+        <label>Description</label>
+        <textarea id="pack-desc">A custom texture pack</textarea>
+      </div>
+      <div class="meta-field">
+        <label>UUID (Header)</label>
+        <input type="text" id="pack-uuid1" readonly style="font-size:10px;font-family:monospace">
+        <button id="uuid-btn" onclick="regenUUIDs()">🔄 Regenerate UUIDs</button>
+      </div>
+      <div class="meta-field">
+        <label>UUID (Module)</label>
+        <input type="text" id="pack-uuid2" readonly style="font-size:10px;font-family:monospace">
+      </div>
+      <div class="meta-field">
+        <label>Version</label>
+        <input type="text" id="pack-version" value="1.0.0">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <span id="st-texture">No texture</span>
+  &nbsp;|&nbsp;
+  Size: <span id="st-size">-</span>
+  &nbsp;|&nbsp;
+  Tool: <span id="st-tool">Pencil</span>
+  &nbsp;|&nbsp;
+  Zoom: <span id="st-zoom">8x</span>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// MANIFEST (embedded — all 2821 bedrock textures)
+// ═══════════════════════════════════════════════
+const MANIFEST = {"blocks":["blocks/acacia_shelf.png","blocks/acacia_trapdoor.png","blocks/amethyst_block.png","blocks/amethyst_cluster.png","blocks/ancient_debris_side.png","blocks/ancient_debris_top.png","blocks/angler_pottery_pattern.png","blocks/anvil_base.png","blocks/anvil_top_damaged_0.png","blocks/anvil_top_damaged_1.png","blocks/anvil_top_damaged_2.png","blocks/archer_pottery_pattern.png","blocks/arms_up_pottery_pattern.png","blocks/azalea_leaves.png","blocks/azalea_leaves_flowers.png","blocks/azalea_leaves_flowers_opaque.png","blocks/azalea_leaves_opaque.png","blocks/azalea_plant.png","blocks/azalea_side.png","blocks/azalea_top.png","blocks/bamboo_block.png","blocks/bamboo_block_top.png","blocks/bamboo_door_bottom.png","blocks/bamboo_door_top.png","blocks/bamboo_fence.png","blocks/bamboo_fence_gate.png","blocks/bamboo_leaf.png","blocks/bamboo_mosaic.png","blocks/bamboo_planks.png","blocks/bamboo_sapling.png","blocks/bamboo_shelf.png","blocks/bamboo_singleleaf.png","blocks/bamboo_small_leaf.png","blocks/bamboo_stem.png","blocks/bamboo_trapdoor.png","blocks/barrel_bottom.png","blocks/barrel_side.png","blocks/barrel_top.png","blocks/barrel_top_open.png","blocks/barrier.png","blocks/basalt_side.png","blocks/basalt_top.png","blocks/beacon.png","blocks/bed_feet_end.png","blocks/bed_feet_side.png","blocks/bed_feet_top.png","blocks/bed_head_end.png","blocks/bed_head_side.png","blocks/bed_head_top.png","blocks/bedrock.png","blocks/bee_nest_bottom.png","blocks/bee_nest_front.png","blocks/bee_nest_front_honey.png","blocks/bee_nest_side.png","blocks/bee_nest_top.png","blocks/beehive_front.png","blocks/beehive_front_honey.png","blocks/beehive_side.png","blocks/beehive_top.png","blocks/beetroots_stage_0.png","blocks/beetroots_stage_1.png","blocks/beetroots_stage_2.png","blocks/beetroots_stage_3.png","blocks/bell_bottom.png","blocks/bell_side.png","blocks/bell_top.png","blocks/big_dripleaf_side1.png","blocks/big_dripleaf_side2.png","blocks/big_dripleaf_stem.png","blocks/big_dripleaf_top.png","blocks/birch_shelf.png","blocks/birch_trapdoor.png","blocks/blackstone.png","blocks/blackstone_top.png","blocks/blade_pottery_pattern.png","blocks/blast_furnace_front_off.png","blocks/blast_furnace_front_on.png","blocks/blast_furnace_side.png","blocks/blast_furnace_top.png","blocks/blue_ice.png","blocks/bone_block_side.png","blocks/bone_block_top.png","blocks/bookshelf.png","blocks/border.png","blocks/brewer_pottery_pattern.png","blocks/brewing_stand.png","blocks/brewing_stand_base.png","blocks/brick.png","blocks/bubble_column_down_top_a.png","blocks/bubble_column_down_top_b.png","blocks/bubble_column_down_top_c.png","blocks/bubble_column_down_top_d.png","blocks/bubble_column_inner_a.png","blocks/bubble_column_inner_b.png","blocks/bubble_column_outer_a.png","blocks/bubble_column_outer_b.png","blocks/bubble_column_outer_c.png","blocks/bubble_column_outer_d.png","blocks/bubble_column_outer_e.png","blocks/bubble_column_outer_f.png","blocks/bubble_column_outer_g.png","blocks/bubble_column_outer_h.png","blocks/bubble_column_up_top_a.png","blocks/bubble_column_up_top_b.png","blocks/bubble_column_up_top_c.png","blocks/bubble_column_up_top_d.png","blocks/budding_amethyst.png","blocks/build_allow.png","blocks/build_deny.png","blocks/burn_pottery_pattern.png","blocks/bush.png","blocks/cactus_flower.png","blocks/cake_bottom.png","blocks/cake_inner.png","blocks/cake_side.png","blocks/cake_top.png","blocks/calcite.png","blocks/calibrated_sculk_sensor_amethyst.png","blocks/calibrated_sculk_sensor_input_side.png","blocks/calibrated_sculk_sensor_top.png","blocks/camera_back.png","blocks/camera_front.png","blocks/camera_side.png","blocks/camera_top.png","blocks/campfire.png","blocks/campfire_log.png","blocks/campfire_log_lit.png","blocks/candles/black_candle.png","blocks/candles/black_candle_lit.png","blocks/candles/blue_candle.png","blocks/candles/blue_candle_lit.png","blocks/candles/brown_candle.png","blocks/candles/brown_candle_lit.png","blocks/candles/candle.png","blocks/candles/candle_lit.png","blocks/candles/cyan_candle.png","blocks/candles/cyan_candle_lit.png","blocks/candles/gray_candle.png","blocks/candles/gray_candle_lit.png","blocks/candles/green_candle.png","blocks/candles/green_candle_lit.png","blocks/candles/light_blue_candle.png","blocks/candles/light_blue_candle_lit.png","blocks/candles/light_gray_candle.png","blocks/candles/light_gray_candle_lit.png","blocks/candles/lime_candle.png","blocks/candles/lime_candle_lit.png","blocks/candles/magenta_candle.png","blocks/candles/magenta_candle_lit.png","blocks/candles/orange_candle.png","blocks/candles/orange_candle_lit.png","blocks/candles/pink_candle.png","blocks/candles/pink_candle_lit.png","blocks/candles/purple_candle.png","blocks/candles/purple_candle_lit.png","blocks/candles/red_candle.png","blocks/candles/red_candle_lit.png","blocks/candles/white_candle.png","blocks/candles/white_candle_lit.png","blocks/candles/yellow_candle.png","blocks/candles/yellow_candle_lit.png","blocks/carried_waterlily.png","blocks/carrots_stage3.png","blocks/carrots_stage_0.png","blocks/carrots_stage_1.png","blocks/carrots_stage_2.png","blocks/carrots_stage_3.png","blocks/cartography_table_side1.png","blocks/cartography_table_side2.png","blocks/cartography_table_side3.png","blocks/cartography_table_top.png","blocks/cauldron_bottom.png","blocks/cauldron_inner.png","blocks/cauldron_side.png","blocks/cauldron_top.png","blocks/cauldron_water.png","blocks/cauldron_water_placeholder.png","blocks/cave_vines_body.png","blocks/cave_vines_body_berries.png","blocks/cave_vines_head.png","blocks/cave_vines_head_berries.png","blocks/chain1.png","blocks/chain2.png","blocks/chain_command_block_back.png","blocks/chain_command_block_back_mipmap.png","blocks/chain_command_block_conditional.png","blocks/chain_command_block_conditional_mipmap.png","blocks/chain_command_block_front.png","blocks/chain_command_block_front_mipmap.png","blocks/chain_command_block_side.png","blocks/chain_command_block_side_mipmap.png","blocks/cherry_door_bottom.png","blocks/cherry_door_top.png","blocks/cherry_leaves.png","blocks/cherry_leaves_opaque.png","blocks/cherry_log_side.png","blocks/cherry_log_top.png","blocks/cherry_planks.png","blocks/cherry_sapling.png","blocks/cherry_shelf.png","blocks/cherry_trapdoor.png","blocks/chest_front.png","blocks/chest_side.png","blocks/chest_top.png","blocks/chiseled_bookshelf_empty.png","blocks/chiseled_bookshelf_occupied.png","blocks/chiseled_bookshelf_side.png","blocks/chiseled_bookshelf_top.png","blocks/chiseled_copper.png","blocks/chiseled_nether_bricks.png","blocks/chiseled_polished_blackstone.png","blocks/chiseled_resin_bricks.png","blocks/chiseled_tuff.png","blocks/chiseled_tuff_bricks.png","blocks/chiseled_tuff_bricks_top.png","blocks/chiseled_tuff_top.png","blocks/chorus_flower.png","blocks/chorus_flower_dead.png","blocks/chorus_plant.png","blocks/clay.png","blocks/coal_block.png","blocks/coal_ore.png","blocks/coarse_dirt.png","blocks/cobblestone.png","blocks/cobblestone_mossy.png","blocks/cocoa_stage_0.png","blocks/cocoa_stage_1.png","blocks/cocoa_stage_2.png","blocks/command_block.png","blocks/command_block_back.png","blocks/command_block_back_mipmap.png","blocks/command_block_conditional.png","blocks/command_block_conditional_mipmap.png","blocks/command_block_front.png","blocks/command_block_front_mipmap.png","blocks/command_block_side.png","blocks/command_block_side_mipmap.png","blocks/comparator_off.png","blocks/comparator_on.png","blocks/compost.png","blocks/compost_ready.png","blocks/composter_bottom.png","blocks/composter_side.png","blocks/composter_top.png","blocks/concrete_black.png","blocks/concrete_blue.png","blocks/concrete_brown.png","blocks/concrete_cyan.png","blocks/concrete_gray.png","blocks/concrete_green.png","blocks/concrete_light_blue.png","blocks/concrete_lime.png","blocks/concrete_magenta.png","blocks/concrete_orange.png","blocks/concrete_pink.png","blocks/concrete_powder_black.png","blocks/concrete_powder_blue.png","blocks/concrete_powder_brown.png","blocks/concrete_powder_cyan.png","blocks/concrete_powder_gray.png","blocks/concrete_powder_green.png","blocks/concrete_powder_light_blue.png","blocks/concrete_powder_lime.png","blocks/concrete_powder_magenta.png","blocks/concrete_powder_orange.png","blocks/concrete_powder_pink.png","blocks/concrete_powder_purple.png","blocks/concrete_powder_red.png","blocks/concrete_powder_silver.png","blocks/concrete_powder_white.png","blocks/concrete_powder_yellow.png","blocks/concrete_purple.png","blocks/concrete_red.png","blocks/concrete_silver.png","blocks/concrete_white.png","blocks/concrete_yellow.png","blocks/conduit_base.png","blocks/conduit_cage.png","blocks/conduit_closed.png","blocks/conduit_open.png","blocks/conduit_wind_horizontal.png","blocks/conduit_wind_vertical.png","blocks/copper_bars.png","blocks/copper_block.png","blocks/copper_bulb.png","blocks/copper_bulb_lit.png","blocks/copper_bulb_lit_powered.png","blocks/copper_bulb_powered.png","blocks/copper_chain1.png","blocks/copper_chain2.png","blocks/copper_chest_inventory_front.png","blocks/copper_chest_inventory_side.png","blocks/copper_chest_inventory_top.png","blocks/copper_door_bottom.png","blocks/copper_door_top.png","blocks/copper_grate.png","blocks/copper_lantern.png","blocks/copper_ore.png","blocks/copper_torch.png","blocks/copper_trapdoor.png","blocks/coral_blue.png","blocks/coral_blue_dead.png","blocks/coral_fan_blue.png","blocks/coral_fan_blue_dead.png","blocks/coral_fan_pink.png","blocks/coral_fan_pink_dead.png","blocks/coral_fan_purple.png","blocks/coral_fan_purple_dead.png","blocks/coral_fan_red.png","blocks/coral_fan_red_dead.png","blocks/coral_fan_yellow.png","blocks/coral_fan_yellow_dead.png","blocks/coral_pink.png","blocks/coral_pink_dead.png","blocks/coral_plant_blue.png","blocks/coral_plant_blue_dead.png","blocks/coral_plant_pink.png","blocks/coral_plant_pink_dead.png","blocks/coral_plant_purple.png","blocks/coral_plant_purple_dead.png","blocks/coral_plant_red.png","blocks/coral_plant_red_dead.png","blocks/coral_plant_yellow.png","blocks/coral_plant_yellow_dead.png","blocks/coral_purple.png","blocks/coral_purple_dead.png","blocks/coral_red.png","blocks/coral_red_dead.png","blocks/coral_yellow.png","blocks/coral_yellow_dead.png","blocks/cracked_nether_bricks.png","blocks/cracked_polished_blackstone_bricks.png","blocks/crafter_bottom.png","blocks/crafter_east.png","blocks/crafter_east_crafting.png","blocks/crafter_east_triggered.png","blocks/crafter_north.png","blocks/crafter_north_crafting.png","blocks/crafter_south.png","blocks/crafter_south_triggered.png","blocks/crafter_top.png","blocks/crafter_top_crafting.png","blocks/crafter_top_triggered.png","blocks/crafter_west.png","blocks/crafter_west_crafting.png","blocks/crafter_west_triggered.png","blocks/crafting_table_front.png","blocks/crafting_table_side.png","blocks/crafting_table_top.png","blocks/creaking_heart_side_active.png","blocks/creaking_heart_side_dormant.png","blocks/creaking_heart_side_inactive.png","blocks/creaking_heart_top_active.png","blocks/creaking_heart_top_dormant.png","blocks/creaking_heart_top_inactive.png","blocks/crimson_fungus.png","blocks/crimson_nylium_side.png","blocks/crimson_nylium_top.png","blocks/crimson_roots.png","blocks/crimson_roots_pot.png","blocks/crimson_shelf.png","blocks/crying_obsidian.png","blocks/cut_copper.png","blocks/danger_pottery_pattern.png","blocks/dark_oak_shelf.png","blocks/dark_oak_trapdoor.png","blocks/daylight_detector_inverted_top.png","blocks/daylight_detector_side.png","blocks/daylight_detector_top.png","blocks/deadbush.png","blocks/decorated_pot_base.png","blocks/decorated_pot_side.png","blocks/deepslate/chiseled_deepslate.png","blocks/deepslate/cobbled_deepslate.png","blocks/deepslate/cracked_deepslate_bricks.png","blocks/deepslate/cracked_deepslate_tiles.png","blocks/deepslate/deepslate.png","blocks/deepslate/deepslate_bricks.png","blocks/deepslate/deepslate_coal_ore.png","blocks/deepslate/deepslate_copper_ore.png","blocks/deepslate/deepslate_diamond_ore.png","blocks/deepslate/deepslate_emerald_ore.png","blocks/deepslate/deepslate_gold_ore.png","blocks/deepslate/deepslate_iron_ore.png","blocks/deepslate/deepslate_lapis_ore.png","blocks/deepslate/deepslate_redstone_ore.png","blocks/deepslate/deepslate_tiles.png","blocks/deepslate/deepslate_top.png","blocks/deepslate/polished_deepslate.png","blocks/diamond_block.png","blocks/diamond_ore.png","blocks/dirt.png","blocks/dirt_podzol_side.png","blocks/dirt_podzol_top.png","blocks/dirt_with_roots.png","blocks/dispenser_front_horizontal.png","blocks/dispenser_front_vertical.png","blocks/door_acacia_lower.png","blocks/door_acacia_upper.png","blocks/door_birch_lower.png","blocks/door_birch_upper.png","blocks/door_dark_oak_lower.png","blocks/door_dark_oak_upper.png","blocks/door_iron_lower.png","blocks/door_iron_upper.png","blocks/door_jungle_lower.png","blocks/door_jungle_upper.png","blocks/door_spruce_lower.png","blocks/door_spruce_upper.png","blocks/door_wood_lower.png","blocks/door_wood_upper.png","blocks/double_plant_fern_carried.png","blocks/double_plant_grass_carried.png","blocks/double_plant_paeonia_bottom.png","blocks/double_plant_paeonia_top.png","blocks/double_plant_rose_bottom.png","blocks/double_plant_rose_top.png","blocks/double_plant_sunflower_back.png","blocks/double_plant_sunflower_bottom.png","blocks/double_plant_sunflower_front.png","blocks/double_plant_sunflower_top.png","blocks/dragon_egg.png","blocks/dried_ghast_state_1_back.png","blocks/dried_ghast_state_1_bottom.png","blocks/dried_ghast_state_1_front.png","blocks/dried_ghast_state_1_left.png","blocks/dried_ghast_state_1_right.png","blocks/dried_ghast_state_1_tentacles.png","blocks/dried_ghast_state_1_top.png","blocks/dried_ghast_state_2_back.png","blocks/dried_ghast_state_2_bottom.png","blocks/dried_ghast_state_2_front.png","blocks/dried_ghast_state_2_left.png","blocks/dried_ghast_state_2_right.png","blocks/dried_ghast_state_2_tentacles.png","blocks/dried_ghast_state_2_top.png","blocks/dried_ghast_state_3_back.png","blocks/dried_ghast_state_3_bottom.png","blocks/dried_ghast_state_3_front.png","blocks/dried_ghast_state_3_left.png","blocks/dried_ghast_state_3_right.png","blocks/dried_ghast_state_3_tentacles.png","blocks/dried_ghast_state_3_top.png","blocks/dried_ghast_state_4_back.png","blocks/dried_ghast_state_4_bottom.png","blocks/dried_ghast_state_4_front.png","blocks/dried_ghast_state_4_left.png","blocks/dried_ghast_state_4_right.png","blocks/dried_ghast_state_4_tentacles.png","blocks/dried_ghast_state_4_top.png","blocks/dried_kelp_side_a.png","blocks/dried_kelp_side_b.png","blocks/dried_kelp_top.png","blocks/dripstone_block.png","blocks/dropper_front_horizontal.png","blocks/dropper_front_vertical.png","blocks/emerald_block.png","blocks/emerald_ore.png","blocks/enchanting_table_bottom.png","blocks/enchanting_table_side.png","blocks/enchanting_table_top.png","blocks/end_bricks.png","blocks/end_gateway.png","blocks/end_portal.png","blocks/end_rod.png","blocks/end_stone.png","blocks/ender_chest_front.png","blocks/ender_chest_side.png","blocks/ender_chest_top.png","blocks/endframe_eye.png","blocks/endframe_side.png","blocks/endframe_top.png","blocks/explorer_pottery_pattern.png","blocks/exposed_chiseled_copper.png","blocks/exposed_copper.png","blocks/exposed_copper_bars.png","blocks/exposed_copper_bulb.png","blocks/exposed_copper_bulb_lit.png","blocks/exposed_copper_bulb_lit_powered.png","blocks/exposed_copper_bulb_powered.png","blocks/exposed_copper_chain1.png","blocks/exposed_copper_chain2.png","blocks/exposed_copper_chest_inventory_front.png","blocks/exposed_copper_chest_inventory_side.png","blocks/exposed_copper_chest_inventory_top.png","blocks/exposed_copper_door_bottom.png","blocks/exposed_copper_door_top.png","blocks/exposed_copper_grate.png","blocks/exposed_copper_lantern.png","blocks/exposed_copper_trapdoor.png","blocks/exposed_cut_copper.png","blocks/exposed_lightning_rod.png","blocks/eyeblossom_blooming.png","blocks/eyeblossom_dormant.png","blocks/eyeblossom_eyes_blooming.png","blocks/eyeblossom_stem_blooming.png","blocks/farmland_dry.png","blocks/farmland_wet.png","blocks/fire_0.png","blocks/fire_0_placeholder.png","blocks/fire_1.png","blocks/fire_1_placeholder.png","blocks/firefly_bush.png","blocks/firefly_bush_firefly.png","blocks/fletcher_table_side1.png","blocks/fletcher_table_side2.png","blocks/fletcher_table_top.png","blocks/flow_pottery_pattern.png","blocks/flower_allium.png","blocks/flower_blue_orchid.png","blocks/flower_cornflower.png","blocks/flower_dandelion.png","blocks/flower_houstonia.png","blocks/flower_lily_of_the_valley.png","blocks/flower_oxeye_daisy.png","blocks/flower_paeonia.png","blocks/flower_pot.png","blocks/flower_rose.png","blocks/flower_rose_blue.png","blocks/flower_tulip_orange.png","blocks/flower_tulip_pink.png","blocks/flower_tulip_red.png","blocks/flower_tulip_white.png","blocks/flower_wither_rose.png","blocks/flowering_azalea_side.png","blocks/flowering_azalea_top.png","blocks/friend_pottery_pattern.png","blocks/frogspawn.png","blocks/frosted_ice_0.png","blocks/frosted_ice_1.png","blocks/frosted_ice_2.png","blocks/frosted_ice_3.png","blocks/furnace_front_off.png","blocks/furnace_front_on.png","blocks/furnace_side.png","blocks/furnace_top.png","blocks/gilded_blackstone.png","blocks/glass.png","blocks/glass_black.png","blocks/glass_blue.png","blocks/glass_brown.png","blocks/glass_cyan.png","blocks/glass_gray.png","blocks/glass_green.png","blocks/glass_light_blue.png","blocks/glass_lime.png","blocks/glass_magenta.png","blocks/glass_orange.png","blocks/glass_pane_top.png","blocks/glass_pane_top_black.png","blocks/glass_pane_top_blue.png","blocks/glass_pane_top_brown.png","blocks/glass_pane_top_cyan.png","blocks/glass_pane_top_gray.png","blocks/glass_pane_top_green.png","blocks/glass_pane_top_light_blue.png","blocks/glass_pane_top_lime.png","blocks/glass_pane_top_magenta.png","blocks/glass_pane_top_orange.png","blocks/glass_pane_top_pink.png","blocks/glass_pane_top_purple.png","blocks/glass_pane_top_red.png","blocks/glass_pane_top_silver.png","blocks/glass_pane_top_white.png","blocks/glass_pane_top_yellow.png","blocks/glass_pink.png","blocks/glass_purple.png","blocks/glass_red.png","blocks/glass_silver.png","blocks/glass_white.png","blocks/glass_yellow.png","blocks/glazed_terracotta_black.png","blocks/glazed_terracotta_blue.png","blocks/glazed_terracotta_brown.png","blocks/glazed_terracotta_cyan.png","blocks/glazed_terracotta_gray.png","blocks/glazed_terracotta_green.png","blocks/glazed_terracotta_light_blue.png","blocks/glazed_terracotta_lime.png","blocks/glazed_terracotta_magenta.png","blocks/glazed_terracotta_orange.png","blocks/glazed_terracotta_pink.png","blocks/glazed_terracotta_purple.png","blocks/glazed_terracotta_red.png","blocks/glazed_terracotta_silver.png","blocks/glazed_terracotta_white.png","blocks/glazed_terracotta_yellow.png","blocks/glow_item_frame.png","blocks/glow_lichen.png","blocks/glowing_obsidian.png","blocks/glowstone.png","blocks/gold_block.png","blocks/gold_ore.png","blocks/golden_dandelion.png","blocks/grass_block_snow.png","blocks/grass_carried.png","blocks/grass_path_side.png","blocks/grass_path_top.png","blocks/grass_side_carried.png","blocks/grass_side_snowed.png","blocks/grass_top.png","blocks/gravel.png","blocks/guster_pottery_pattern.png","blocks/hanging_roots.png","blocks/hardened_clay.png","blocks/hardened_clay_stained_black.png","blocks/hardened_clay_stained_blue.png","blocks/hardened_clay_stained_brown.png","blocks/hardened_clay_stained_cyan.png","blocks/hardened_clay_stained_gray.png","blocks/hardened_clay_stained_green.png","blocks/hardened_clay_stained_light_blue.png","blocks/hardened_clay_stained_lime.png","blocks/hardened_clay_stained_magenta.png","blocks/hardened_clay_stained_orange.png","blocks/hardened_clay_stained_pink.png","blocks/hardened_clay_stained_purple.png","blocks/hardened_clay_stained_red.png","blocks/hardened_clay_stained_silver.png","blocks/hardened_clay_stained_white.png","blocks/hardened_clay_stained_yellow.png","blocks/hay_block_side.png","blocks/hay_block_top.png","blocks/heart_pottery_pattern.png","blocks/heartbreak_pottery_pattern.png","blocks/heavy_core.png","blocks/honey_bottom.png","blocks/honey_side.png","blocks/honey_top.png","blocks/honeycomb.png","blocks/hopper_inside.png","blocks/hopper_outside.png","blocks/hopper_top.png","blocks/howl_pottery_pattern.png","blocks/huge_fungus/crimson_door_lower.png","blocks/huge_fungus/crimson_door_top.png","blocks/huge_fungus/crimson_log_side.png","blocks/huge_fungus/crimson_log_top.png","blocks/huge_fungus/crimson_planks.png","blocks/huge_fungus/crimson_trapdoor.png","blocks/huge_fungus/stripped_crimson_stem_side.png","blocks/huge_fungus/stripped_crimson_stem_top.png","blocks/huge_fungus/stripped_warped_stem_side.png","blocks/huge_fungus/stripped_warped_stem_top.png","blocks/huge_fungus/warped_door_lower.png","blocks/huge_fungus/warped_door_top.png","blocks/huge_fungus/warped_planks.png","blocks/huge_fungus/warped_stem_side.png","blocks/huge_fungus/warped_stem_top.png","blocks/huge_fungus/warped_trapdoor.png","blocks/ice.png","blocks/ice_packed.png","blocks/iron_bars.png","blocks/iron_block.png","blocks/iron_ore.png","blocks/iron_trapdoor.png","blocks/itemframe_background.png","blocks/jigsaw_back.png","blocks/jigsaw_front.png","blocks/jigsaw_lock.png","blocks/jigsaw_side.png","blocks/jukebox_side.png","blocks/jukebox_top.png","blocks/jungle_shelf.png","blocks/jungle_trapdoor.png","blocks/ladder.png","blocks/lantern.png","blocks/lapis_block.png","blocks/lapis_ore.png","blocks/large_amethyst_bud.png","blocks/lava_flow.png","blocks/lava_placeholder.png","blocks/lava_still.png","blocks/leaf_litter.png","blocks/leaves_acacia_opaque.png","blocks/leaves_big_oak_opaque.png","blocks/leaves_birch_opaque.png","blocks/leaves_jungle_opaque.png","blocks/leaves_oak_opaque.png","blocks/leaves_spruce_opaque.png","blocks/lectern_base.png","blocks/lectern_front.png","blocks/lectern_sides.png","blocks/lectern_top.png","blocks/lever.png","blocks/lightning_rod.png","blocks/lightning_rod_powered.png","blocks/lodestone_side.png","blocks/lodestone_top.png","blocks/log_acacia.png","blocks/log_acacia_top.png","blocks/log_big_oak.png","blocks/log_big_oak_top.png","blocks/log_birch.png","blocks/log_birch_top.png","blocks/log_jungle.png","blocks/log_jungle_top.png","blocks/log_oak.png","blocks/log_oak_top.png","blocks/log_spruce.png","blocks/log_spruce_top.png","blocks/loom_bottom.png","blocks/loom_front.png","blocks/loom_side.png","blocks/loom_top.png","blocks/magma.png","blocks/mangrove_door_bottom.png","blocks/mangrove_door_top.png","blocks/mangrove_leaves_opaque.png","blocks/mangrove_log_side.png","blocks/mangrove_log_top.png","blocks/mangrove_planks.png","blocks/mangrove_propagule.png","blocks/mangrove_propagule_hanging.png","blocks/mangrove_roots_side.png","blocks/mangrove_roots_top.png","blocks/mangrove_shelf.png","blocks/mangrove_trapdoor.png","blocks/medium_amethyst_bud.png","blocks/melon_side.png","blocks/melon_stem_connected.png","blocks/melon_stem_disconnected.png","blocks/melon_top.png","blocks/miner_pottery_pattern.png","blocks/missing_tile.png","blocks/mob_spawner.png","blocks/moss_block.png","blocks/mourner_pottery_pattern.png","blocks/mud.png","blocks/mud_bricks.png","blocks/muddy_mangrove_roots_side.png","blocks/muddy_mangrove_roots_top.png","blocks/mushroom_block_inside.png","blocks/mushroom_block_skin_brown.png","blocks/mushroom_block_skin_red.png","blocks/mushroom_block_skin_stem.png","blocks/mushroom_brown.png","blocks/mushroom_red.png","blocks/mycelium_side.png","blocks/mycelium_top.png","blocks/nether_brick.png","blocks/nether_gold_ore.png","blocks/nether_sprouts.png","blocks/nether_wart_block.png","blocks/nether_wart_stage_0.png","blocks/nether_wart_stage_1.png","blocks/nether_wart_stage_2.png","blocks/netherite_block.png","blocks/netherrack.png","blocks/noteblock.png","blocks/oak_shelf.png","blocks/observer_back.png","blocks/observer_back_lit.png","blocks/observer_front.png","blocks/observer_side.png","blocks/observer_top.png","blocks/obsidian.png","blocks/ochre_froglight_side.png","blocks/ochre_froglight_top.png","blocks/oxidized_chiseled_copper.png","blocks/oxidized_copper.png","blocks/oxidized_copper_bars.png","blocks/oxidized_copper_bulb.png","blocks/oxidized_copper_bulb_lit.png","blocks/oxidized_copper_bulb_lit_powered.png","blocks/oxidized_copper_bulb_powered.png","blocks/oxidized_copper_chain1.png","blocks/oxidized_copper_chain2.png","blocks/oxidized_copper_chest_inventory_front.png","blocks/oxidized_copper_chest_inventory_side.png","blocks/oxidized_copper_chest_inventory_top.png","blocks/oxidized_copper_door_bottom.png","blocks/oxidized_copper_door_top.png","blocks/oxidized_copper_grate.png","blocks/oxidized_copper_lantern.png","blocks/oxidized_copper_trapdoor.png","blocks/oxidized_cut_copper.png","blocks/oxidized_lightning_rod.png","blocks/packed_mud.png","blocks/pale_hanging_moss_middle.png","blocks/pale_hanging_moss_tip.png","blocks/pale_moss.png","blocks/pale_moss_block.png","blocks/pale_moss_carpet_side_base.png","blocks/pale_moss_carpet_side_tip.png","blocks/pale_oak_door_bottom.png","blocks/pale_oak_door_top.png","blocks/pale_oak_leaves_opaque.png","blocks/pale_oak_log_side.png","blocks/pale_oak_log_top.png","blocks/pale_oak_planks.png","blocks/pale_oak_sapling.png","blocks/pale_oak_shelf.png","blocks/pale_oak_trapdoor.png","blocks/pearlescent_froglight_side.png","blocks/pearlescent_froglight_top.png","blocks/pink_petals.png","blocks/pink_petals_stem.png","blocks/piston_bottom.png","blocks/piston_inner.png","blocks/piston_side.png","blocks/piston_top_normal.png","blocks/piston_top_sticky.png","blocks/pitcher_crop_bottom.png","blocks/pitcher_crop_bottom_stage_1.png","blocks/pitcher_crop_bottom_stage_2.png","blocks/pitcher_crop_bottom_stage_3.png","blocks/pitcher_crop_bottom_stage_4.png","blocks/pitcher_crop_side.png","blocks/pitcher_crop_top.png","blocks/pitcher_crop_top_stage_3.png","blocks/pitcher_crop_top_stage_4.png","blocks/planks_acacia.png","blocks/planks_big_oak.png","blocks/planks_birch.png","blocks/planks_jungle.png","blocks/planks_oak.png","blocks/planks_spruce.png","blocks/plenty_pottery_pattern.png","blocks/pointed_dripstone_down_base.png","blocks/pointed_dripstone_down_frustum.png","blocks/pointed_dripstone_down_merge.png","blocks/pointed_dripstone_down_middle.png","blocks/pointed_dripstone_down_tip.png","blocks/pointed_dripstone_up_base.png","blocks/pointed_dripstone_up_frustum.png","blocks/pointed_dripstone_up_merge.png","blocks/pointed_dripstone_up_middle.png","blocks/pointed_dripstone_up_tip.png","blocks/polished_basalt_side.png","blocks/polished_basalt_top.png","blocks/polished_blackstone.png","blocks/polished_blackstone_bricks.png","blocks/polished_tuff.png","blocks/portal.png","blocks/portal_placeholder.png","blocks/potatoes_stage_0.png","blocks/potatoes_stage_1.png","blocks/potatoes_stage_2.png","blocks/potatoes_stage_3.png","blocks/potted_azalea_bush_plant.png","blocks/potted_azalea_bush_side.png","blocks/potted_azalea_bush_top.png","blocks/potted_flowering_azalea_bush_plant.png","blocks/potted_flowering_azalea_bush_side.png","blocks/potted_flowering_azalea_bush_top.png","blocks/powder_snow.png","blocks/prismarine_bricks.png","blocks/prismarine_dark.png","blocks/prismarine_rough.png","blocks/prize_pottery_pattern.png","blocks/pumpkin_face_off.png","blocks/pumpkin_face_on.png","blocks/pumpkin_side.png","blocks/pumpkin_stem_connected.png","blocks/pumpkin_stem_disconnected.png","blocks/pumpkin_top.png","blocks/purpur_block.png","blocks/purpur_pillar.png","blocks/purpur_pillar_top.png","blocks/quartz_block_bottom.png","blocks/quartz_block_chiseled.png","blocks/quartz_block_chiseled_top.png","blocks/quartz_block_lines.png","blocks/quartz_block_lines_top.png","blocks/quartz_block_side.png","blocks/quartz_block_top.png","blocks/quartz_bricks.png","blocks/quartz_ore.png","blocks/rail_activator.png","blocks/rail_activator_powered.png","blocks/rail_detector.png","blocks/rail_detector_powered.png","blocks/rail_golden.png","blocks/rail_golden_powered.png","blocks/rail_normal.png","blocks/rail_normal_turned.png","blocks/raw_copper_block.png","blocks/raw_gold_block.png","blocks/raw_iron_block.png","blocks/reactor_core_stage_0.png","blocks/reactor_core_stage_1.png","blocks/reactor_core_stage_2.png","blocks/red_nether_brick.png","blocks/red_sand.png","blocks/red_sandstone_bottom.png","blocks/red_sandstone_carved.png","blocks/red_sandstone_normal.png","blocks/red_sandstone_smooth.png","blocks/red_sandstone_top.png","blocks/redstone_block.png","blocks/redstone_dust_cross.png","blocks/redstone_dust_line.png","blocks/redstone_lamp_off.png","blocks/redstone_lamp_on.png","blocks/redstone_ore.png","blocks/redstone_torch_off.png","blocks/redstone_torch_on.png","blocks/reinforced_deepslate_bottom.png","blocks/reinforced_deepslate_side.png","blocks/reinforced_deepslate_top.png","blocks/repeater_off.png","blocks/repeater_on.png","blocks/repeating_command_block_back.png","blocks/repeating_command_block_back_mipmap.png","blocks/repeating_command_block_conditional.png","blocks/repeating_command_block_conditional_mipmap.png","blocks/repeating_command_block_front.png","blocks/repeating_command_block_front_mipmap.png","blocks/repeating_command_block_side.png","blocks/repeating_command_block_side_mipmap.png","blocks/resin_block.png","blocks/resin_bricks.png","blocks/resin_clump.png","blocks/respawn_anchor_bottom.png","blocks/respawn_anchor_side0.png","blocks/respawn_anchor_side1.png","blocks/respawn_anchor_side2.png","blocks/respawn_anchor_side3.png","blocks/respawn_anchor_side4.png","blocks/respawn_anchor_top.png","blocks/respawn_anchor_top_off.png","blocks/sand.png","blocks/sandstone_bottom.png","blocks/sandstone_carved.png","blocks/sandstone_normal.png","blocks/sandstone_smooth.png","blocks/sandstone_top.png","blocks/sapling_acacia.png","blocks/sapling_birch.png","blocks/sapling_jungle.png","blocks/sapling_oak.png","blocks/sapling_roofed_oak.png","blocks/sapling_spruce.png","blocks/scrape_pottery_pattern.png","blocks/sculk.png","blocks/sculk_catalyst_bottom.png","blocks/sculk_catalyst_side.png","blocks/sculk_catalyst_side_bloom.png","blocks/sculk_catalyst_top.png","blocks/sculk_catalyst_top_bloom.png","blocks/sculk_sensor_bottom.png","blocks/sculk_sensor_side.png","blocks/sculk_sensor_tendril_active.png","blocks/sculk_sensor_tendril_inactive.png","blocks/sculk_sensor_top.png","blocks/sculk_shrieker_bottom.png","blocks/sculk_shrieker_can_summon_inner_top.png","blocks/sculk_shrieker_inner_top.png","blocks/sculk_shrieker_side.png","blocks/sculk_shrieker_top.png","blocks/sculk_vein.png","blocks/sea_lantern.png","blocks/sea_pickle.png","blocks/seagrass.png","blocks/seagrass_carried.png","blocks/sheaf_pottery_pattern.png","blocks/shelter_pottery_pattern.png","blocks/short_dry_grass.png","blocks/shroomlight.png","blocks/shulker_top_black.png","blocks/shulker_top_blue.png","blocks/shulker_top_brown.png","blocks/shulker_top_cyan.png","blocks/shulker_top_gray.png","blocks/shulker_top_green.png","blocks/shulker_top_light_blue.png","blocks/shulker_top_lime.png","blocks/shulker_top_magenta.png","blocks/shulker_top_orange.png","blocks/shulker_top_pink.png","blocks/shulker_top_purple.png","blocks/shulker_top_red.png","blocks/shulker_top_silver.png","blocks/shulker_top_undyed.png","blocks/shulker_top_white.png","blocks/shulker_top_yellow.png","blocks/skull_pottery_pattern.png","blocks/slime.png","blocks/small_amethyst_bud.png","blocks/small_dripleaf_side.png","blocks/small_dripleaf_stem_bottom.png","blocks/small_dripleaf_stem_top.png","blocks/small_dripleaf_top.png","blocks/smithing_table_bottom.png","blocks/smithing_table_front.png","blocks/smithing_table_side.png","blocks/smithing_table_top.png","blocks/smoker_bottom.png","blocks/smoker_front_off.png","blocks/smoker_front_on.png","blocks/smoker_side.png","blocks/smoker_top.png","blocks/smooth_basalt.png","blocks/sniffer_egg_not_cracked_bottom.png","blocks/sniffer_egg_not_cracked_east.png","blocks/sniffer_egg_not_cracked_north.png","blocks/sniffer_egg_not_cracked_south.png","blocks/sniffer_egg_not_cracked_top.png","blocks/sniffer_egg_not_cracked_west.png","blocks/sniffer_egg_slightly_cracked_bottom.png","blocks/sniffer_egg_slightly_cracked_east.png","blocks/sniffer_egg_slightly_cracked_north.png","blocks/sniffer_egg_slightly_cracked_south.png","blocks/sniffer_egg_slightly_cracked_top.png","blocks/sniffer_egg_slightly_cracked_west.png","blocks/sniffer_egg_very_cracked_bottom.png","blocks/sniffer_egg_very_cracked_east.png","blocks/sniffer_egg_very_cracked_north.png","blocks/sniffer_egg_very_cracked_south.png","blocks/sniffer_egg_very_cracked_top.png","blocks/sniffer_egg_very_cracked_west.png","blocks/snort_pottery_pattern.png","blocks/snow.png","blocks/soul_campfire.png","blocks/soul_campfire_log_lit.png","blocks/soul_fire_0.png","blocks/soul_fire_1.png","blocks/soul_lantern.png","blocks/soul_sand.png","blocks/soul_soil.png","blocks/soul_torch.png","blocks/sponge.png","blocks/sponge_wet.png","blocks/spore_blossom.png","blocks/spore_blossom_base.png","blocks/spruce_shelf.png","blocks/spruce_trapdoor.png","blocks/stone.png","blocks/stone_andesite.png","blocks/stone_andesite_smooth.png","blocks/stone_diorite.png","blocks/stone_diorite_smooth.png","blocks/stone_granite.png","blocks/stone_granite_smooth.png","blocks/stone_slab_side.png","blocks/stone_slab_top.png","blocks/stonebrick.png","blocks/stonebrick_carved.png","blocks/stonebrick_cracked.png","blocks/stonebrick_mossy.png","blocks/stonecutter2_bottom.png","blocks/stonecutter2_side.png","blocks/stonecutter2_top.png","blocks/stonecutter_bottom.png","blocks/stonecutter_other_side.png","blocks/stonecutter_side.png","blocks/stonecutter_top.png","blocks/stripped_acacia_log.png","blocks/stripped_acacia_log_top.png","blocks/stripped_bamboo_block.png","blocks/stripped_bamboo_block_top.png","blocks/stripped_birch_log.png","blocks/stripped_birch_log_top.png","blocks/stripped_cherry_log_side.png","blocks/stripped_cherry_log_top.png","blocks/stripped_dark_oak_log.png","blocks/stripped_dark_oak_log_top.png","blocks/stripped_jungle_log.png","blocks/stripped_jungle_log_top.png","blocks/stripped_mangrove_log_side.png","blocks/stripped_mangrove_log_top.png","blocks/stripped_oak_log.png","blocks/stripped_oak_log_top.png","blocks/stripped_pale_oak_log_side.png","blocks/stripped_pale_oak_log_top.png","blocks/stripped_spruce_log.png","blocks/stripped_spruce_log_top.png","blocks/structure_air.png","blocks/structure_block.png","blocks/structure_block_corner.png","blocks/structure_block_data.png","blocks/structure_block_export.png","blocks/structure_block_load.png","blocks/structure_block_save.png","blocks/structure_void.png","blocks/suspicious_gravel_0.png","blocks/suspicious_gravel_1.png","blocks/suspicious_gravel_2.png","blocks/suspicious_gravel_3.png","blocks/suspicious_sand_0.png","blocks/suspicious_sand_1.png","blocks/suspicious_sand_2.png","blocks/suspicious_sand_3.png","blocks/sweet_berry_bush_stage0.png","blocks/sweet_berry_bush_stage1.png","blocks/sweet_berry_bush_stage2.png","blocks/sweet_berry_bush_stage3.png","blocks/tall_dry_grass.png","blocks/tallgrass.png","blocks/target_side.png","blocks/target_top.png","blocks/tinted_glass.png","blocks/tnt_bottom.png","blocks/tnt_side.png","blocks/tnt_top.png","blocks/torch_on.png","blocks/torchflower.png","blocks/torchflower_crop_stage_0.png","blocks/torchflower_crop_stage_1.png","blocks/trapdoor.png","blocks/trapped_chest_front.png","blocks/trial_spawner_bottom.png","blocks/trial_spawner_side.png","blocks/trial_spawner_side_active.png","blocks/trial_spawner_side_active_ominous.png","blocks/trial_spawner_side_inactive.png","blocks/trial_spawner_side_inactive_ominous.png","blocks/trial_spawner_top.png","blocks/trial_spawner_top_active.png","blocks/trial_spawner_top_active_ominous.png","blocks/trial_spawner_top_ejecting_reward.png","blocks/trial_spawner_top_ejecting_reward_ominous.png","blocks/trial_spawner_top_inactive.png","blocks/trial_spawner_top_inactive_ominous.png","blocks/trial_spawner_top_open.png","blocks/trip_wire.png","blocks/trip_wire_source.png","blocks/tuff.png","blocks/tuff_bricks.png","blocks/turtle_egg_not_cracked.png","blocks/turtle_egg_slightly_cracked.png","blocks/turtle_egg_very_cracked.png","blocks/twisting_vines_base.png","blocks/twisting_vines_bottom.png","blocks/vault_bottom.png","blocks/vault_bottom_ominous.png","blocks/vault_front_ejecting.png","blocks/vault_front_ejecting_ominous.png","blocks/vault_front_off.png","blocks/vault_front_off_ominous.png","blocks/vault_front_on.png","blocks/vault_front_on_ominous.png","blocks/vault_side_off.png","blocks/vault_side_off_ominous.png","blocks/vault_side_on.png","blocks/vault_side_on_ominous.png","blocks/vault_top.png","blocks/vault_top_ejecting.png","blocks/vault_top_ejecting_ominous.png","blocks/vault_top_ominous.png","blocks/verdant_froglight_side.png","blocks/verdant_froglight_top.png","blocks/vine.png","blocks/vine_carried.png","blocks/warped_fungus.png","blocks/warped_nylium_side.png","blocks/warped_nylium_top.png","blocks/warped_roots.png","blocks/warped_roots_pot.png","blocks/warped_shelf.png","blocks/warped_wart_block.png","blocks/water_flow.png","blocks/water_flow_grey.png","blocks/water_placeholder.png","blocks/water_still.png","blocks/water_still_grey.png","blocks/waterlily.png","blocks/weathered_chiseled_copper.png","blocks/weathered_copper.png","blocks/weathered_copper_bars.png","blocks/weathered_copper_bulb.png","blocks/weathered_copper_bulb_lit.png","blocks/weathered_copper_bulb_lit_powered.png","blocks/weathered_copper_bulb_powered.png","blocks/weathered_copper_chain1.png","blocks/weathered_copper_chain2.png","blocks/weathered_copper_chest_inventory_front.png","blocks/weathered_copper_chest_inventory_side.png","blocks/weathered_copper_chest_inventory_top.png","blocks/weathered_copper_door_bottom.png","blocks/weathered_copper_door_top.png","blocks/weathered_copper_grate.png","blocks/weathered_copper_lantern.png","blocks/weathered_copper_trapdoor.png","blocks/weathered_cut_copper.png","blocks/weathered_lightning_rod.png","blocks/web.png","blocks/weeping_vines.png","blocks/weeping_vines_base.png","blocks/weeping_vines_bottom.png","blocks/weeping_vines_plant.png","blocks/wheat_stage_0.png","blocks/wheat_stage_1.png","blocks/wheat_stage_2.png","blocks/wheat_stage_3.png","blocks/wheat_stage_4.png","blocks/wheat_stage_5.png","blocks/wheat_stage_6.png","blocks/wheat_stage_7.png","blocks/wildflowers.png","blocks/wildflowers_stem.png","blocks/wool_colored_black.png","blocks/wool_colored_blue.png","blocks/wool_colored_brown.png","blocks/wool_colored_cyan.png","blocks/wool_colored_gray.png","blocks/wool_colored_green.png","blocks/wool_colored_light_blue.png","blocks/wool_colored_lime.png","blocks/wool_colored_magenta.png","blocks/wool_colored_orange.png","blocks/wool_colored_pink.png","blocks/wool_colored_purple.png","blocks/wool_colored_red.png","blocks/wool_colored_silver.png","blocks/wool_colored_white.png","blocks/wool_colored_yellow.png"],"colormap":["colormap/birch.png","colormap/dry_foliage.png","colormap/evergreen.png","colormap/foliage.png","colormap/grass.png","colormap/mangrove_swamp_foliage.png","colormap/swamp_foliage.png","colormap/swamp_grass.png"],"entity":["entity/acacia_hanging_sign.png","entity/agent.png","entity/alex.png","entity/allay/allay.png","entity/armadillo.png","entity/armadillo/armadillo_baby.png","entity/armor_stand.png","entity/arrows.png","entity/axolotl/axolotl_blue.png","entity/axolotl/axolotl_blue_baby.png","entity/axolotl/axolotl_cyan.png","entity/axolotl/axolotl_cyan_baby.png","entity/axolotl/axolotl_gold.png","entity/axolotl/axolotl_gold_baby.png","entity/axolotl/axolotl_lucy.png","entity/axolotl/axolotl_lucy_baby.png","entity/axolotl/axolotl_wild.png","entity/axolotl/axolotl_wild_baby.png","entity/bamboo_hanging_sign.png","entity/bamboo_sign.png","entity/banner/banner_flow.png","entity/banner/banner_guster.png","entity/banner/banner_piglin.png","entity/banner/banner_skull.png","entity/bat.png","entity/bat_v2.png","entity/beacon_beam.png","entity/bed/black.png","entity/bed/blue.png","entity/bed/brown.png","entity/bed/cyan.png","entity/bed/gray.png","entity/bed/green.png","entity/bed/light_blue.png","entity/bed/lime.png","entity/bed/magenta.png","entity/bed/orange.png","entity/bed/pink.png","entity/bed/purple.png","entity/bed/red.png","entity/bed/silver.png","entity/bed/white.png","entity/bed/yellow.png","entity/bee/bee.png","entity/bee/bee_angry.png","entity/bee/bee_angry_baby.png","entity/bee/bee_angry_nectar.png","entity/bee/bee_angry_nectar_baby.png","entity/bee/bee_baby.png","entity/bee/bee_nectar.png","entity/bee/bee_nectar_baby.png","entity/bell/bell.png","entity/birch_hanging_sign.png","entity/boat/bamboo_raft.png","entity/boat/boat_acacia.png","entity/boat/boat_birch.png","entity/boat/boat_darkoak.png","entity/boat/boat_jungle.png","entity/boat/boat_oak.png","entity/boat/boat_spruce.png","entity/boat/cherry_boat.png","entity/boat/chest_boat_acacia.png","entity/boat/chest_boat_bamboo.png","entity/boat/chest_boat_birch.png","entity/boat/chest_boat_cherry.png","entity/boat/chest_boat_darkoak.png","entity/boat/chest_boat_jungle.png","entity/boat/chest_boat_mangrove.png","entity/boat/chest_boat_oak.png","entity/boat/chest_boat_pale_oak.png","entity/boat/chest_boat_spruce.png","entity/boat/mangrove_boat.png","entity/boat/pale_oak_boat.png","entity/breeze/breeze.png","entity/breeze/breeze_eyes.png","entity/breeze/breeze_wind.png","entity/camel/camel.png","entity/camel/camel_baby.png","entity/camel_husk/camel_husk.png","entity/camera_tripod.png","entity/cape_invisible.png","entity/cat/allblackcat.png","entity/cat/allblackcat_baby.png","entity/cat/blackcat.png","entity/cat/britishshorthair.png","entity/cat/britishshorthair_baby.png","entity/cat/calico.png","entity/cat/calico_baby.png","entity/cat/jellie.png","entity/cat/jellie_baby.png","entity/cat/ocelot.png","entity/cat/ocelot_baby.png","entity/cat/persian.png","entity/cat/persian_baby.png","entity/cat/ragdoll.png","entity/cat/ragdoll_baby.png","entity/cat/red.png","entity/cat/redtabby.png","entity/cat/redtabby_baby.png","entity/cat/siamese.png","entity/cat/siamese_baby.png","entity/cat/siamesecat.png","entity/cat/tabby.png","entity/cat/tabby_baby.png","entity/cat/tuxedo.png","entity/cat/tuxedo_baby.png","entity/cat/white.png","entity/cat/white_baby.png","entity/char.png","entity/cherry_hanging_sign.png","entity/cherry_sign.png","entity/chest/copper_default.png","entity/chest/copper_default_double.png","entity/chest/copper_exposed.png","entity/chest/copper_exposed_double.png","entity/chest/copper_oxidized.png","entity/chest/copper_oxidized_double.png","entity/chest/copper_weathered.png","entity/chest/copper_weathered_double.png","entity/chest/double_normal.png","entity/chest/ender.png","entity/chest/normal.png","entity/chest/trapped.png","entity/chest/trapped_double.png","entity/chicken.png","entity/chicken/chicken.png","entity/chicken/chicken_cold.png","entity/chicken/chicken_cold_baby.png","entity/chicken/chicken_temperate_baby.png","entity/chicken/chicken_warm.png","entity/chicken/chicken_warm_baby.png","entity/copper_golem/copper_golem.png","entity/copper_golem/copper_golem_exposed.png","entity/copper_golem/copper_golem_eyes.png","entity/copper_golem/copper_golem_eyes_exposed.png","entity/copper_golem/copper_golem_eyes_oxidized.png","entity/copper_golem/copper_golem_eyes_weathered.png","entity/copper_golem/copper_golem_flower.png","entity/copper_golem/copper_golem_oxidized.png","entity/copper_golem/copper_golem_weathered.png","entity/cow/brown_mooshroom.png","entity/cow/brown_mooshroom_v2.png","entity/cow/cow.png","entity/cow/cow_cold.png","entity/cow/cow_cold_baby.png","entity/cow/cow_temperate_baby.png","entity/cow/cow_v2.png","entity/cow/cow_warm.png","entity/cow/cow_warm_baby.png","entity/cow/mooshroom.png","entity/cow/mooshroom_brown_baby.png","entity/cow/mooshroom_red_baby.png","entity/cow/mooshroom_v2.png","entity/creaking/creaking.png","entity/creaking/creaking_eyes.png","entity/creeper/creeper.png","entity/creeper/creeper_armor.png","entity/crimson_hanging_sign.png","entity/dark_oak_hanging_sign.png","entity/dolphin.png","entity/dolphin/dolphin_baby.png","entity/dragon/dragon_exploding.png","entity/dragon/dragon_eyes.png","entity/dummy.png","entity/enchanting_table_book.png","entity/enchanting_table_book_shadow.png","entity/end_portal.png","entity/endercrystal/endercrystal.png","entity/endercrystal/endercrystal_beam.png","entity/endermite.png","entity/experience_orb.png","entity/fireworks.png","entity/fish/clownfish.png","entity/fish/cod.png","entity/fish/fish.png","entity/fish/pufferfish.png","entity/fish/salmon.png","entity/fish/tropical_a.png","entity/fish/tropical_a_pattern_1.png","entity/fish/tropical_a_pattern_2.png","entity/fish/tropical_a_pattern_3.png","entity/fish/tropical_a_pattern_4.png","entity/fish/tropical_a_pattern_5.png","entity/fish/tropical_a_pattern_6.png","entity/fish/tropical_b.png","entity/fish/tropical_b_pattern_1.png","entity/fish/tropical_b_pattern_2.png","entity/fish/tropical_b_pattern_3.png","entity/fish/tropical_b_pattern_4.png","entity/fish/tropical_b_pattern_5.png","entity/fish/tropical_b_pattern_6.png","entity/fishhook.png","entity/fox/arctic_fox.png","entity/fox/fox.png","entity/fox/fox_baby.png","entity/fox/fox_sleep_baby.png","entity/fox/fox_snow_baby.png","entity/fox/fox_snow_sleep_baby.png","entity/frog/cold_frog.png","entity/frog/temperate_frog.png","entity/frog/warm_frog.png","entity/ghast/ghast.png","entity/ghast/ghast_shooting.png","entity/goat/goat.png","entity/goat/goat_baby.png","entity/guardian.png","entity/guardian_beam.png","entity/guardian_elder.png","entity/happy_ghast/ghastling.png","entity/happy_ghast/happy_ghast.png","entity/happy_ghast/happy_ghast_ropes.png","entity/harness/harness_black.png","entity/harness/harness_blue.png","entity/harness/harness_brown.png","entity/harness/harness_cyan.png","entity/harness/harness_gray.png","entity/harness/harness_green.png","entity/harness/harness_light_blue.png","entity/harness/harness_light_gray.png","entity/harness/harness_lime.png","entity/harness/harness_magenta.png","entity/harness/harness_orange.png","entity/harness/harness_pink.png","entity/harness/harness_purple.png","entity/harness/harness_red.png","entity/harness/harness_white.png","entity/harness/harness_yellow.png","entity/hoglin/hoglin.png","entity/hoglin/hoglin_baby.png","entity/horse/armor/horse_armor_diamond.png","entity/horse/armor/horse_armor_gold.png","entity/horse/armor/horse_armor_iron.png","entity/horse/armor/horse_armor_none.png","entity/horse/donkey.png","entity/horse/horse_black.png","entity/horse/horse_brown.png","entity/horse/horse_chestnut.png","entity/horse/horse_creamy.png","entity/horse/horse_darkbrown.png","entity/horse/horse_gray.png","entity/horse/horse_markings_blackdots.png","entity/horse/horse_markings_none.png","entity/horse/horse_markings_white.png","entity/horse/horse_markings_whitedots.png","entity/horse/horse_markings_whitefield.png","entity/horse/horse_skeleton.png","entity/horse/horse_white.png","entity/horse/horse_zombie.png","entity/horse/mule.png","entity/horse2/armor/horse_armor_copper.png","entity/horse2/armor/horse_armor_diamond.png","entity/horse2/armor/horse_armor_gold.png","entity/horse2/armor/horse_armor_iron.png","entity/horse2/armor/horse_armor_netherite.png","entity/horse2/armor/horse_armor_none.png","entity/horse2/baby_horse_markings_blackdots.png","entity/horse2/baby_horse_markings_white.png","entity/horse2/baby_horse_markings_whitedots.png","entity/horse2/baby_horse_markings_whitefield.png","entity/horse2/donkey.png","entity/horse2/donkey_baby.png","entity/horse2/horse_black.png","entity/horse2/horse_black_baby.png","entity/horse2/horse_brown.png","entity/horse2/horse_brown_baby.png","entity/horse2/horse_chestnut.png","entity/horse2/horse_chestnut_baby.png","entity/horse2/horse_creamy.png","entity/horse2/horse_creamy_baby.png","entity/horse2/horse_darkbrown.png","entity/horse2/horse_darkbrown_baby.png","entity/horse2/horse_gray.png","entity/horse2/horse_gray_baby.png","entity/horse2/horse_markings_blackdots.png","entity/horse2/horse_markings_none.png","entity/horse2/horse_markings_white.png","entity/horse2/horse_markings_whitedots.png","entity/horse2/horse_markings_whitefield.png","entity/horse2/horse_skeleton.png","entity/horse2/horse_skeleton_baby.png","entity/horse2/horse_white.png","entity/horse2/horse_white_baby.png","entity/horse2/horse_zombie.png","entity/horse2/horse_zombie_baby.png","entity/horse2/mule.png","entity/horse2/mule_baby.png","entity/illager/evoker.png","entity/illager/fangs.png","entity/illager/ravager.png","entity/iron_golem.png","entity/iron_golem/cracked_high.png","entity/iron_golem/cracked_low.png","entity/iron_golem/cracked_medium.png","entity/iron_golem/cracked_none.png","entity/iron_golem/iron_golem.png","entity/jungle_hanging_sign.png","entity/lead_knot.png","entity/lead_rope.png","entity/llama/decor/decor_black.png","entity/llama/decor/decor_blue.png","entity/llama/decor/decor_brown.png","entity/llama/decor/decor_cyan.png","entity/llama/decor/decor_gray.png","entity/llama/decor/decor_green.png","entity/llama/decor/decor_light_blue.png","entity/llama/decor/decor_lime.png","entity/llama/decor/decor_magenta.png","entity/llama/decor/decor_none.png","entity/llama/decor/decor_orange.png","entity/llama/decor/decor_pink.png","entity/llama/decor/decor_purple.png","entity/llama/decor/decor_red.png","entity/llama/decor/decor_silver.png","entity/llama/decor/decor_white.png","entity/llama/decor/decor_yellow.png","entity/llama/decor/trader_llama_decor.png","entity/llama/llama.png","entity/llama/llama_brown.png","entity/llama/llama_brown_baby.png","entity/llama/llama_creamy.png","entity/llama/llama_creamy_baby.png","entity/llama/llama_gray.png","entity/llama/llama_gray_baby.png","entity/llama/llama_white.png","entity/llama/llama_white_baby.png","entity/llama/spit.png","entity/llama/trader_llama_baby.png","entity/loyalty_rope.png","entity/mangrove_hanging_sign.png","entity/mangrove_sign.png","entity/minecart.png","entity/nautilus/armor/nautilus_armor_copper.png","entity/nautilus/armor/nautilus_armor_diamond.png","entity/nautilus/armor/nautilus_armor_gold.png","entity/nautilus/armor/nautilus_armor_iron.png","entity/nautilus/armor/nautilus_armor_netherite.png","entity/nautilus/nautilus.png","entity/nautilus/nautilus_baby.png","entity/nautilus/nautilus_saddle.png","entity/nautilus/zombie_nautilus.png","entity/nautilus/zombie_nautilus_coral.png","entity/npc/npc_1.png","entity/npc/npc_10.png","entity/npc/npc_2.png","entity/npc/npc_3.png","entity/npc/npc_4.png","entity/npc/npc_5.png","entity/npc/npc_6.png","entity/npc/npc_7.png","entity/npc/npc_8.png","entity/npc/npc_9.png","entity/npc/npc_Agriculture_1.png","entity/npc/npc_Agriculture_10.png","entity/npc/npc_Agriculture_2.png","entity/npc/npc_Agriculture_3.png","entity/npc/npc_Agriculture_4.png","entity/npc/npc_Agriculture_5.png","entity/npc/npc_Agriculture_6.png","entity/npc/npc_Agriculture_7.png","entity/npc/npc_Agriculture_8.png","entity/npc/npc_Agriculture_9.png","entity/npc/npc_BusinessMobs_1.png","entity/npc/npc_BusinessMobs_2.png","entity/npc/npc_BusinessMobs_3.png","entity/npc/npc_BusinessMobs_4.png","entity/npc/npc_BusinessMobs_5.png","entity/npc/npc_EverydayBusiness_1.png","entity/npc/npc_EverydayBusiness_2.png","entity/npc/npc_EverydayBusiness_3.png","entity/npc/npc_EverydayBusiness_4.png","entity/npc/npc_EverydayBusiness_5.png","entity/npc/npc_Kiosk_1.png","entity/npc/npc_Kiosk_2.png","entity/npc/npc_Kiosk_3.png","entity/npc/npc_Kiosk_4.png","entity/npc/npc_Kiosk_5.png","entity/npc/npc_apiary_1.png","entity/npc/npc_apiary_2.png","entity/npc/npc_apiary_3.png","entity/npc/npc_apiary_4.png","entity/npc/npc_apiary_5.png","entity/npc/npc_construction_1.png","entity/npc/npc_construction_2.png","entity/npc/npc_construction_3.png","entity/npc/npc_construction_4.png","entity/npc/npc_construction_5.png","entity/npc/npc_scientist_1.png","entity/npc/npc_scientist_10.png","entity/npc/npc_scientist_2.png","entity/npc/npc_scientist_3.png","entity/npc/npc_scientist_4.png","entity/npc/npc_scientist_5.png","entity/npc/npc_scientist_6.png","entity/npc/npc_scientist_7.png","entity/npc/npc_scientist_8.png","entity/npc/npc_scientist_9.png","entity/npc/npc_teacher_1.png","entity/npc/npc_teacher_2.png","entity/npc/npc_teacher_3.png","entity/npc/npc_teacher_4.png","entity/npc/npc_teacher_5.png","entity/oak_hanging_sign.png","entity/pale_oak_hanging_sign.png","entity/pale_oak_sign.png","entity/panda/panda.png","entity/panda/panda_aggressive.png","entity/panda/panda_aggressive_baby.png","entity/panda/panda_baby.png","entity/panda/panda_brown.png","entity/panda/panda_brown_baby.png","entity/panda/panda_lazy.png","entity/panda/panda_lazy_baby.png","entity/panda/panda_playful.png","entity/panda/panda_playful_baby.png","entity/panda/panda_sneezy.png","entity/panda/panda_weak_baby.png","entity/panda/panda_worried.png","entity/panda/panda_worried_baby.png","entity/parched/parched.png","entity/parrot/parrot_blue.png","entity/parrot/parrot_green.png","entity/parrot/parrot_grey.png","entity/parrot/parrot_red_blue.png","entity/parrot/parrot_yellow_blue.png","entity/pig/pig.png","entity/pig/pig_cold.png","entity/pig/pig_cold_baby.png","entity/pig/pig_saddle.png","entity/pig/pig_temperate_baby.png","entity/pig/pig_v3.png","entity/pig/pig_warm.png","entity/pig/pig_warm_baby.png","entity/pig/pigzombie.png","entity/piglin/piglin.png","entity/piglin/piglin_baby.png","entity/piglin/piglin_brute.png","entity/piglin/zombie_piglin.png","entity/piglin/zombie_piglin_baby.png","entity/pillager.png","entity/pistonarm/pistonArm.png","entity/pistonarm/pistonArmSticky.png","entity/polar_bear.png","entity/polar_bear/polar_bear_baby.png","entity/polarbear.png","entity/rabbit/blackrabbit.png","entity/rabbit/brown.png","entity/rabbit/gold.png","entity/rabbit/rabbit_black.png","entity/rabbit/rabbit_black_baby.png","entity/rabbit/rabbit_brown.png","entity/rabbit/rabbit_brown_baby.png","entity/rabbit/rabbit_gold.png","entity/rabbit/rabbit_gold_baby.png","entity/rabbit/rabbit_salt.png","entity/rabbit/rabbit_salt_baby.png","entity/rabbit/rabbit_toast.png","entity/rabbit/rabbit_toast_baby.png","entity/rabbit/rabbit_white.png","entity/rabbit/rabbit_white_baby.png","entity/rabbit/rabbit_white_splotched.png","entity/rabbit/rabbit_white_splotched_baby.png","entity/rabbit/salt.png","entity/rabbit/toast.png","entity/rabbit/white.png","entity/rabbit/white_splotched.png","entity/saddle.png","entity/saddle_v2.png","entity/sea_turtle.png","entity/shield.png","entity/shield_patterns/base.png","entity/shield_patterns/border.png","entity/shield_patterns/bricks.png","entity/shield_patterns/circle.png","entity/shield_patterns/creeper.png","entity/shield_patterns/cross.png","entity/shield_patterns/curly_border.png","entity/shield_patterns/diagonal_left.png","entity/shield_patterns/diagonal_right.png","entity/shield_patterns/diagonal_up_left.png","entity/shield_patterns/diagonal_up_right.png","entity/shield_patterns/flow.png","entity/shield_patterns/flower.png","entity/shield_patterns/globe.png","entity/shield_patterns/gradient.png","entity/shield_patterns/gradient_up.png","entity/shield_patterns/guster.png","entity/shield_patterns/half_horizontal.png","entity/shield_patterns/half_horizontal_bottom.png","entity/shield_patterns/half_vertical.png","entity/shield_patterns/half_vertical_right.png","entity/shield_patterns/illager.png","entity/shield_patterns/mojang.png","entity/shield_patterns/piglin.png","entity/shield_patterns/rhombus.png","entity/shield_patterns/skull.png","entity/shield_patterns/small_stripes.png","entity/shield_patterns/square_bottom_left.png","entity/shield_patterns/square_bottom_right.png","entity/shield_patterns/square_top_left.png","entity/shield_patterns/square_top_right.png","entity/shield_patterns/straight_cross.png","entity/shield_patterns/stripe_bottom.png","entity/shield_patterns/stripe_center.png","entity/shield_patterns/stripe_downleft.png","entity/shield_patterns/stripe_downright.png","entity/shield_patterns/stripe_left.png","entity/shield_patterns/stripe_middle.png","entity/shield_patterns/stripe_right.png","entity/shield_patterns/stripe_top.png","entity/shield_patterns/triangle_bottom.png","entity/shield_patterns/triangle_top.png","entity/shield_patterns/triangles_bottom.png","entity/shield_patterns/triangles_top.png","entity/shulker/shulker_black.png","entity/shulker/shulker_blue.png","entity/shulker/shulker_brown.png","entity/shulker/shulker_cyan.png","entity/shulker/shulker_gray.png","entity/shulker/shulker_green.png","entity/shulker/shulker_light_blue.png","entity/shulker/shulker_lime.png","entity/shulker/shulker_magenta.png","entity/shulker/shulker_orange.png","entity/shulker/shulker_pink.png","entity/shulker/shulker_purple.png","entity/shulker/shulker_red.png","entity/shulker/shulker_silver.png","entity/shulker/shulker_undyed.png","entity/shulker/shulker_white.png","entity/shulker/shulker_yellow.png","entity/shulker/spark.png","entity/sign.png","entity/sign_acacia.png","entity/sign_birch.png","entity/sign_crimson.png","entity/sign_darkoak.png","entity/sign_jungle.png","entity/sign_spruce.png","entity/sign_warped.png","entity/silverfish.png","entity/skeleton/bogged.png","entity/skeleton/bogged_clothes.png","entity/skeleton/skeleton.png","entity/skeleton/stray.png","entity/skeleton/stray_overlay.png","entity/skeleton/wither_skeleton.png","entity/skulls/creeper.png","entity/skulls/skeleton.png","entity/skulls/wither_skeleton.png","entity/skulls/zombie.png","entity/slime/slime.png","entity/sniffer/sniffer.png","entity/sniffer/snifflet.png","entity/snow_golem.png","entity/spear/copper_spear.png","entity/spear/diamond_spear.png","entity/spear/gold_spear.png","entity/spear/iron_spear.png","entity/spear/netherite_spear.png","entity/spear/stone_spear.png","entity/spear/wood_spear.png","entity/spruce_hanging_sign.png","entity/spyglass.png","entity/squid.png","entity/squid/squid_baby.png","entity/steve.png","entity/strider/strider.png","entity/strider/strider_baby.png","entity/strider/strider_cold_baby.png","entity/strider/strider_saddled.png","entity/strider/strider_suffocated.png","entity/strider/strider_suffocated_saddled.png","entity/tadpole/tadpole.png","entity/trident.png","entity/trident_riptide.png","entity/turtle/sea_turtle_baby.png","entity/vex/vex.png","entity/vex/vex_charging.png","entity/villager/butcher.png","entity/villager/farmer.png","entity/villager/librarian.png","entity/villager/priest.png","entity/villager/smith.png","entity/villager/villager.png","entity/villager2/biomes/biome_desert.png","entity/villager2/biomes/biome_desert_baby.png","entity/villager2/biomes/biome_jungle.png","entity/villager2/biomes/biome_jungle_baby.png","entity/villager2/biomes/biome_plains.png","entity/villager2/biomes/biome_plains_baby.png","entity/villager2/biomes/biome_savanna.png","entity/villager2/biomes/biome_savanna_baby.png","entity/villager2/biomes/biome_snow.png","entity/villager2/biomes/biome_snow_baby.png","entity/villager2/biomes/biome_swamp.png","entity/villager2/biomes/biome_swamp_baby.png","entity/villager2/biomes/biome_taiga.png","entity/villager2/biomes/biome_taiga_baby.png","entity/villager2/levels/level_diamond.png","entity/villager2/levels/level_emerald.png","entity/villager2/levels/level_gold.png","entity/villager2/levels/level_iron.png","entity/villager2/levels/level_stone.png","entity/villager2/villager.png","entity/villager2/villager_baby.png","entity/vindicator.png","entity/wandering_trader.png","entity/warden/warden.png","entity/warden/warden_bioluminescent_layer.png","entity/warden/warden_ears.png","entity/warden/warden_heart.png","entity/warden/warden_pulsating_spots_1.png","entity/warden/warden_pulsating_spots_2.png","entity/warden/warden_tendrils.png","entity/warped_hanging_sign.png","entity/wind_charge.png","entity/witch.png","entity/wither_boss/wither.png","entity/wither_boss/wither_armor_blue.png","entity/wither_boss/wither_armor_white.png","entity/wither_boss/wither_invulnerable.png","entity/wolf/wolf.png","entity/wolf/wolf_angry.png","entity/wolf/wolf_angry_baby.png","entity/wolf/wolf_armor.png","entity/wolf/wolf_armor_cracked_high.png","entity/wolf/wolf_armor_cracked_low.png","entity/wolf/wolf_armor_cracked_medium.png","entity/wolf/wolf_armor_cracked_none.png","entity/wolf/wolf_ashen.png","entity/wolf/wolf_ashen_angry.png","entity/wolf/wolf_ashen_angry_baby.png","entity/wolf/wolf_ashen_baby.png","entity/wolf/wolf_baby.png","entity/wolf/wolf_black.png","entity/wolf/wolf_black_angry.png","entity/wolf/wolf_black_angry_baby.png","entity/wolf/wolf_black_baby.png","entity/wolf/wolf_chestnut.png","entity/wolf/wolf_chestnut_angry.png","entity/wolf/wolf_chestnut_angry_baby.png","entity/wolf/wolf_chestnut_baby.png","entity/wolf/wolf_collar_baby.png","entity/wolf/wolf_rusty.png","entity/wolf/wolf_rusty_angry.png","entity/wolf/wolf_rusty_angry_baby.png","entity/wolf/wolf_rusty_baby.png","entity/wolf/wolf_snowy.png","entity/wolf/wolf_snowy_angry.png","entity/wolf/wolf_snowy_angry_baby.png","entity/wolf/wolf_snowy_baby.png","entity/wolf/wolf_spotted.png","entity/wolf/wolf_spotted_angry.png","entity/wolf/wolf_spotted_angry_baby.png","entity/wolf/wolf_spotted_baby.png","entity/wolf/wolf_striped.png","entity/wolf/wolf_striped_angry.png","entity/wolf/wolf_striped_angry_baby.png","entity/wolf/wolf_striped_baby.png","entity/wolf/wolf_woods.png","entity/wolf/wolf_woods_angry.png","entity/wolf/wolf_woods_angry_baby.png","entity/wolf/wolf_woods_baby.png","entity/zoglin/zoglin.png","entity/zoglin/zoglin_baby.png","entity/zombie/husk.png","entity/zombie/husk_baby.png","entity/zombie/zombie.png","entity/zombie/zombie_baby.png","entity/zombie_villager/zombie_butcher.png","entity/zombie_villager/zombie_farmer.png","entity/zombie_villager/zombie_librarian.png","entity/zombie_villager/zombie_priest.png","entity/zombie_villager/zombie_smith.png","entity/zombie_villager/zombie_villager.png","entity/zombie_villager2/biomes/biome-desert-zombie.png","entity/zombie_villager2/biomes/biome-jungle-zombie.png","entity/zombie_villager2/biomes/biome-plains-zombie.png","entity/zombie_villager2/biomes/biome-savanna-zombie.png","entity/zombie_villager2/biomes/biome-snow-zombie.png","entity/zombie_villager2/biomes/biome-swamp-zombie.png","entity/zombie_villager2/biomes/biome-taiga-zombie.png","entity/zombie_villager2/biomes/biome_desert_baby.png","entity/zombie_villager2/biomes/biome_jungle_baby.png","entity/zombie_villager2/biomes/biome_plains_baby.png","entity/zombie_villager2/biomes/biome_savanna_baby.png","entity/zombie_villager2/biomes/biome_snow_baby.png","entity/zombie_villager2/biomes/biome_swamp_baby.png","entity/zombie_villager2/biomes/biome_taiga_baby.png","entity/zombie_villager2/zombie-villager.png","entity/zombie_villager2/zombie-villager_baby.png"],"environment":["environment/clouds.png","environment/destroy_stage_0.png","environment/destroy_stage_1.png","environment/destroy_stage_2.png","environment/destroy_stage_3.png","environment/destroy_stage_4.png","environment/destroy_stage_5.png","environment/destroy_stage_6.png","environment/destroy_stage_7.png","environment/destroy_stage_8.png","environment/destroy_stage_9.png","environment/end_flash.png","environment/end_portal_colors.png","environment/end_sky.png","environment/moon_phases.png","environment/sun.png","environment/sun_vv.png","environment/weather.png"],"items":["items/acacia_chest_boat.png","items/acacia_hanging_sign.png","items/amethyst_shard.png","items/angler_pottery_sherd.png","items/apple.png","items/apple_golden.png","items/archer_pottery_sherd.png","items/armadillo_scute.png","items/armor_stand.png","items/arms_up_pottery_sherd.png","items/arrow.png","items/bamboo.png","items/bamboo_chest_raft.png","items/bamboo_door.png","items/bamboo_hanging_sign.png","items/bamboo_raft.png","items/bamboo_sign.png","items/banner_pattern.png","items/bed_black.png","items/bed_blue.png","items/bed_brown.png","items/bed_cyan.png","items/bed_gray.png","items/bed_green.png","items/bed_light_blue.png","items/bed_lime.png","items/bed_magenta.png","items/bed_orange.png","items/bed_pink.png","items/bed_purple.png","items/bed_red.png","items/bed_silver.png","items/bed_white.png","items/bed_yellow.png","items/beef_cooked.png","items/beef_raw.png","items/beetroot.png","items/beetroot_soup.png","items/birch_chest_boat.png","items/birch_hanging_sign.png","items/blade_pottery_sherd.png","items/blaze_powder.png","items/blaze_rod.png","items/blue_egg.png","items/boat.png","items/boat_acacia.png","items/boat_birch.png","items/boat_dark_oak.png","items/boat_darkoak.png","items/boat_jungle.png","items/boat_oak.png","items/boat_spruce.png","items/bolt_armor_trim_smithing_template.png","items/bone.png","items/book_enchanted.png","items/book_normal.png","items/book_portfolio.png","items/book_writable.png","items/book_written.png","items/bordure_indented_banner_pattern.png","items/bow_pulling_0.png","items/bow_pulling_1.png","items/bow_pulling_2.png","items/bow_standby.png","items/bowl.png","items/bread.png","items/breeze_rod.png","items/brewer_pottery_sherd.png","items/brewing_stand.png","items/brick.png","items/broken_elytra.png","items/brown_egg.png","items/brush.png","items/bucket_axolotl.png","items/bucket_cod.png","items/bucket_empty.png","items/bucket_lava.png","items/bucket_milk.png","items/bucket_powder_snow.png","items/bucket_pufferfish.png","items/bucket_salmon.png","items/bucket_tadpole.png","items/bucket_tropical.png","items/bucket_water.png","items/bundle.png","items/bundle_black.png","items/bundle_black_open.png","items/bundle_black_open_back.png","items/bundle_black_open_front.png","items/bundle_blue.png","items/bundle_blue_open.png","items/bundle_blue_open_back.png","items/bundle_blue_open_front.png","items/bundle_brown.png","items/bundle_brown_open.png","items/bundle_brown_open_back.png","items/bundle_brown_open_front.png","items/bundle_cyan.png","items/bundle_cyan_open.png","items/bundle_cyan_open_back.png","items/bundle_cyan_open_front.png","items/bundle_gray.png","items/bundle_gray_open.png","items/bundle_gray_open_back.png","items/bundle_gray_open_front.png","items/bundle_green.png","items/bundle_green_open.png","items/bundle_green_open_back.png","items/bundle_green_open_front.png","items/bundle_light_blue.png","items/bundle_light_blue_open.png","items/bundle_light_blue_open_back.png","items/bundle_light_blue_open_front.png","items/bundle_light_gray.png","items/bundle_light_gray_open.png","items/bundle_light_gray_open_back.png","items/bundle_light_gray_open_front.png","items/bundle_lime.png","items/bundle_lime_open.png","items/bundle_lime_open_back.png","items/bundle_lime_open_front.png","items/bundle_magenta.png","items/bundle_magenta_open.png","items/bundle_magenta_open_back.png","items/bundle_magenta_open_front.png","items/bundle_open.png","items/bundle_open_back.png","items/bundle_open_front.png","items/bundle_orange.png","items/bundle_orange_open.png","items/bundle_orange_open_back.png","items/bundle_orange_open_front.png","items/bundle_pink.png","items/bundle_pink_open.png","items/bundle_pink_open_back.png","items/bundle_pink_open_front.png","items/bundle_purple.png","items/bundle_purple_open.png","items/bundle_purple_open_back.png","items/bundle_purple_open_front.png","items/bundle_red.png","items/bundle_red_open.png","items/bundle_red_open_back.png","items/bundle_red_open_front.png","items/bundle_white.png","items/bundle_white_open.png","items/bundle_white_open_back.png","items/bundle_white_open_front.png","items/bundle_yellow.png","items/bundle_yellow_open.png","items/bundle_yellow_open_back.png","items/bundle_yellow_open_front.png","items/burn_pottery_sherd.png","items/bush.png","items/cake.png","items/campfire.png","items/candles/black_candle.png","items/candles/blue_candle.png","items/candles/brown_candle.png","items/candles/candle.png","items/candles/cyan_candle.png","items/candles/gray_candle.png","items/candles/green_candle.png","items/candles/light_blue_candle.png","items/candles/light_gray_candle.png","items/candles/lime_candle.png","items/candles/magenta_candle.png","items/candles/orange_candle.png","items/candles/pink_candle.png","items/candles/purple_candle.png","items/candles/red_candle.png","items/candles/white_candle.png","items/candles/yellow_candle.png","items/carrot.png","items/carrot_golden.png","items/carrot_on_a_stick.png","items/cauldron.png","items/chain.png","items/chainmail_boots.png","items/chainmail_chestplate.png","items/chainmail_helmet.png","items/chainmail_leggings.png","items/chalkboard_large.png","items/chalkboard_medium.png","items/chalkboard_small.png","items/charcoal.png","items/cherry_boat.png","items/cherry_chest_boat.png","items/cherry_door.png","items/cherry_hanging_sign.png","items/cherry_sign.png","items/chicken_cooked.png","items/chicken_raw.png","items/chorus_fruit.png","items/chorus_fruit_popped.png","items/clay_ball.png","items/clock_item.png","items/coal.png","items/coast_armor_trim_smithing_template.png","items/comparator.png","items/compass_atlas.png","items/compass_item.png","items/cookie.png","items/copper_axe.png","items/copper_boots.png","items/copper_chain.png","items/copper_chestplate.png","items/copper_door.png","items/copper_helmet.png","items/copper_hoe.png","items/copper_horse_armor.png","items/copper_ingot.png","items/copper_lantern.png","items/copper_leggings.png","items/copper_nugget.png","items/copper_pickaxe.png","items/copper_shovel.png","items/copper_sword.png","items/creeper_banner_pattern.png","items/crimson_door.png","items/crimson_hanging_sign.png","items/crossbow_arrow.png","items/crossbow_firework.png","items/crossbow_pulling_0.png","items/crossbow_pulling_1.png","items/crossbow_pulling_2.png","items/crossbow_standby.png","items/danger_pottery_sherd.png","items/dark_oak_chest_boat.png","items/dark_oak_hanging_sign.png","items/diamond.png","items/diamond_axe.png","items/diamond_boots.png","items/diamond_chestplate.png","items/diamond_helmet.png","items/diamond_hoe.png","items/diamond_horse_armor.png","items/diamond_leggings.png","items/diamond_pickaxe.png","items/diamond_shovel.png","items/diamond_sword.png","items/disc_fragment_5.png","items/door_acacia.png","items/door_birch.png","items/door_dark_oak.png","items/door_iron.png","items/door_jungle.png","items/door_spruce.png","items/door_wood.png","items/dragon_fireball.png","items/dragons_breath.png","items/dried_kelp.png","items/dune_armor_trim_smithing_template.png","items/dye_powder_black.png","items/dye_powder_black_new.png","items/dye_powder_blue.png","items/dye_powder_blue_new.png","items/dye_powder_brown.png","items/dye_powder_brown_new.png","items/dye_powder_cyan.png","items/dye_powder_glow.png","items/dye_powder_gray.png","items/dye_powder_green.png","items/dye_powder_light_blue.png","items/dye_powder_lime.png","items/dye_powder_magenta.png","items/dye_powder_orange.png","items/dye_powder_pink.png","items/dye_powder_purple.png","items/dye_powder_red.png","items/dye_powder_silver.png","items/dye_powder_white.png","items/dye_powder_white_new.png","items/dye_powder_yellow.png","items/echo_shard.png","items/egg.png","items/egg_agent.png","items/egg_bat.png","items/egg_bee.png","items/egg_blaze.png","items/egg_cat.png","items/egg_cave_spider.png","items/egg_chicken.png","items/egg_clownfish.png","items/egg_cod.png","items/egg_cow.png","items/egg_creeper.png","items/egg_dolphin.png","items/egg_donkey.png","items/egg_drowned.png","items/egg_elderguardian.png","items/egg_enderman.png","items/egg_endermite.png","items/egg_evoker.png","items/egg_fish.png","items/egg_fox.png","items/egg_ghast.png","items/egg_glow_squid.png","items/egg_guardian.png","items/egg_horse.png","items/egg_husk.png","items/egg_lava_slime.png","items/egg_llama.png","items/egg_mask.png","items/egg_mule.png","items/egg_mushroomcow.png","items/egg_npc.png","items/egg_null.png","items/egg_ocelot.png","items/egg_panda.png","items/egg_parrot.png","items/egg_phantom.png","items/egg_pig.png","items/egg_pigzombie.png","items/egg_pillager.png","items/egg_polarbear.png","items/egg_pufferfish.png","items/egg_rabbit.png","items/egg_ravager.png","items/egg_salmon.png","items/egg_sheep.png","items/egg_shulker.png","items/egg_silverfish.png","items/egg_skeleton.png","items/egg_skeletonhorse.png","items/egg_slime.png","items/egg_spider.png","items/egg_squid.png","items/egg_stray.png","items/egg_turtle.png","items/egg_vex.png","items/egg_villager.png","items/egg_vindicator.png","items/egg_wanderingtrader.png","items/egg_witch.png","items/egg_wither.png","items/egg_wolf.png","items/egg_zombie.png","items/egg_zombiehorse.png","items/egg_zombievillager.png","items/elytra.png","items/emerald.png","items/empty_armor_slot_boots.png","items/empty_armor_slot_chestplate.png","items/empty_armor_slot_helmet.png","items/empty_armor_slot_leggings.png","items/empty_armor_slot_shield.png","items/end_crystal.png","items/ender_eye.png","items/ender_pearl.png","items/experience_bottle.png","items/explorer_pottery_sherd.png","items/exposed_copper_chain.png","items/exposed_copper_door.png","items/exposed_copper_lantern.png","items/eye_armor_trim_smithing_template.png","items/feather.png","items/field_masoned_banner_pattern.png","items/fireball.png","items/firefly_bush.png","items/fireworks.png","items/fish_clownfish_raw.png","items/fish_cooked.png","items/fish_pufferfish_raw.png","items/fish_raw.png","items/fish_salmon_cooked.png","items/fish_salmon_raw.png","items/fishing_rod_cast.png","items/fishing_rod_uncast.png","items/flint.png","items/flint_and_steel.png","items/flow_armor_trim_smithing_template.png","items/flow_banner_pattern.png","items/flow_pottery_sherd.png","items/flower_banner_pattern.png","items/flower_pot.png","items/friend_pottery_sherd.png","items/ghast_tear.png","items/globe_banner_pattern.png","items/glow_berries.png","items/glow_item_frame.png","items/glowstone_dust.png","items/goat_horn.png","items/gold_axe.png","items/gold_boots.png","items/gold_chestplate.png","items/gold_helmet.png","items/gold_hoe.png","items/gold_horse_armor.png","items/gold_ingot.png","items/gold_leggings.png","items/gold_nugget.png","items/gold_pickaxe.png","items/gold_shovel.png","items/gold_sword.png","items/gunpowder.png","items/guster_banner_pattern.png","items/guster_pottery_sherd.png","items/hanging_roots.png","items/harness/harness_black.png","items/harness/harness_blue.png","items/harness/harness_brown.png","items/harness/harness_cyan.png","items/harness/harness_gray.png","items/harness/harness_green.png","items/harness/harness_light_blue.png","items/harness/harness_light_gray.png","items/harness/harness_lime.png","items/harness/harness_magenta.png","items/harness/harness_orange.png","items/harness/harness_pink.png","items/harness/harness_purple.png","items/harness/harness_red.png","items/harness/harness_white.png","items/harness/harness_yellow.png","items/heart_pottery_sherd.png","items/heartbreak_pottery_sherd.png","items/heartofthesea_closed.png","items/hoglin_meat_cooked.png","items/hoglin_meat_raw.png","items/honey_bottle.png","items/honeycomb.png","items/hopper.png","items/host_armor_trim_smithing_template.png","items/howl_pottery_sherd.png","items/iron_axe.png","items/iron_boots.png","items/iron_chestplate.png","items/iron_helmet.png","items/iron_hoe.png","items/iron_horse_armor.png","items/iron_ingot.png","items/iron_leggings.png","items/iron_nugget.png","items/iron_pickaxe.png","items/iron_shovel.png","items/iron_sword.png","items/item_frame.png","items/jungle_chest_boat.png","items/jungle_hanging_sign.png","items/kelp.png","items/lantern.png","items/lead.png","items/leaf_litter.png","items/leather.png","items/leather_chestplate.png","items/lever.png","items/light_block_0.png","items/light_block_1.png","items/light_block_10.png","items/light_block_11.png","items/light_block_12.png","items/light_block_13.png","items/light_block_14.png","items/light_block_15.png","items/light_block_2.png","items/light_block_3.png","items/light_block_4.png","items/light_block_5.png","items/light_block_6.png","items/light_block_7.png","items/light_block_8.png","items/light_block_9.png","items/lodestonecompass_atlas.png","items/lodestonecompass_item.png","items/mace.png","items/magma_cream.png","items/mangrove_boat.png","items/mangrove_chest_boat.png","items/mangrove_door.png","items/mangrove_hanging_sign.png","items/mangrove_propagule.png","items/mangrove_sign.png","items/map_empty.png","items/map_filled.png","items/map_locked.png","items/map_mansion.png","items/map_monument.png","items/map_nautilus.png","items/map_trial_chambers.png","items/melon.png","items/melon_speckled.png","items/minecart_chest.png","items/minecart_command_block.png","items/minecart_furnace.png","items/minecart_hopper.png","items/minecart_normal.png","items/minecart_tnt.png","items/miner_pottery_sherd.png","items/mojang_banner_pattern.png","items/mourner_pottery_sherd.png","items/mushroom_stew.png","items/music_disc_creator.png","items/music_disc_creator_music_box.png","items/music_disc_lava_chicken.png","items/music_disc_precipice.png","items/music_disc_relic.png","items/music_disc_tears.png","items/mutton_cooked.png","items/mutton_raw.png","items/name_tag.png","items/nautilus.png","items/nautilus_armor/copper_nautilus_armor.png","items/nautilus_armor/diamond_nautilus_armor.png","items/nautilus_armor/gold_nautilus_armor.png","items/nautilus_armor/iron_nautilus_armor.png","items/nautilus_armor/netherite_nautilus_armor.png","items/nether_sprouts.png","items/nether_star.png","items/nether_wart.png","items/netherbrick.png","items/netherite_axe.png","items/netherite_boots.png","items/netherite_chestplate.png","items/netherite_helmet.png","items/netherite_hoe.png","items/netherite_horse_armor.png","items/netherite_ingot.png","items/netherite_leggings.png","items/netherite_pickaxe.png","items/netherite_scrap.png","items/netherite_shovel.png","items/netherite_sword.png","items/netherite_upgrade_smithing_template.png","items/oak_chest_boat.png","items/oak_hanging_sign.png","items/ominous_bottle.png","items/ominous_trial_key.png","items/oxidized_copper_chain.png","items/oxidized_copper_door.png","items/oxidized_copper_lantern.png","items/painting.png","items/pale_oak_boat.png","items/pale_oak_chest_boat.png","items/pale_oak_door.png","items/pale_oak_hanging_sign.png","items/pale_oak_sign.png","items/paper.png","items/phantom_membrane.png","items/piglin_banner_pattern.png","items/pink_petals.png","items/pitcher_pod.png","items/plenty_pottery_sherd.png","items/porkchop_cooked.png","items/porkchop_raw.png","items/potato.png","items/potato_baked.png","items/potato_poisonous.png","items/potion_bottle_absorption.png","items/potion_bottle_blindness.png","items/potion_bottle_confusion.png","items/potion_bottle_damageBoost.png","items/potion_bottle_digSlowdown.png","items/potion_bottle_digSpeed.png","items/potion_bottle_drinkable.png","items/potion_bottle_empty.png","items/potion_bottle_fireResistance.png","items/potion_bottle_harm.png","items/potion_bottle_heal.png","items/potion_bottle_healthBoost.png","items/potion_bottle_hunger.png","items/potion_bottle_infested.png","items/potion_bottle_invisibility.png","items/potion_bottle_jump.png","items/potion_bottle_levitation.png","items/potion_bottle_lingering.png","items/potion_bottle_lingering_damageBoost.png","items/potion_bottle_lingering_empty.png","items/potion_bottle_lingering_fireResistance.png","items/potion_bottle_lingering_harm.png","items/potion_bottle_lingering_heal.png","items/potion_bottle_lingering_infested.png","items/potion_bottle_lingering_invisibility.png","items/potion_bottle_lingering_jump.png","items/potion_bottle_lingering_luck.png","items/potion_bottle_lingering_moveSlowdown.png","items/potion_bottle_lingering_moveSpeed.png","items/potion_bottle_lingering_nightVision.png","items/potion_bottle_lingering_oozing.png","items/potion_bottle_lingering_poison.png","items/potion_bottle_lingering_regeneration.png","items/potion_bottle_lingering_slowFall.png","items/potion_bottle_lingering_turtleMaster.png","items/potion_bottle_lingering_waterBreathing.png","items/potion_bottle_lingering_weakness.png","items/potion_bottle_lingering_weaving.png","items/potion_bottle_lingering_windCharged.png","items/potion_bottle_lingering_wither.png","items/potion_bottle_moveSlowdown.png","items/potion_bottle_moveSpeed.png","items/potion_bottle_nightVision.png","items/potion_bottle_oozing.png","items/potion_bottle_poison.png","items/potion_bottle_regeneration.png","items/potion_bottle_resistance.png","items/potion_bottle_saturation.png","items/potion_bottle_slowFall.png","items/potion_bottle_splash.png","items/potion_bottle_splash_absorption.png","items/potion_bottle_splash_blindness.png","items/potion_bottle_splash_confusion.png","items/potion_bottle_splash_damageBoost.png","items/potion_bottle_splash_digSlowdown.png","items/potion_bottle_splash_digSpeed.png","items/potion_bottle_splash_fireResistance.png","items/potion_bottle_splash_harm.png","items/potion_bottle_splash_heal.png","items/potion_bottle_splash_healthBoost.png","items/potion_bottle_splash_hunger.png","items/potion_bottle_splash_infested.png","items/potion_bottle_splash_invisibility.png","items/potion_bottle_splash_jump.png","items/potion_bottle_splash_levitation.png","items/potion_bottle_splash_moveSlowdown.png","items/potion_bottle_splash_moveSpeed.png","items/potion_bottle_splash_nightVision.png","items/potion_bottle_splash_oozing.png","items/potion_bottle_splash_poison.png","items/potion_bottle_splash_regeneration.png","items/potion_bottle_splash_resistance.png","items/potion_bottle_splash_saturation.png","items/potion_bottle_splash_slowFall.png","items/potion_bottle_splash_turtleMaster.png","items/potion_bottle_splash_waterBreathing.png","items/potion_bottle_splash_weakness.png","items/potion_bottle_splash_weaving.png","items/potion_bottle_splash_windCharged.png","items/potion_bottle_splash_wither.png","items/potion_bottle_turtleMaster.png","items/potion_bottle_waterBreathing.png","items/potion_bottle_weakness.png","items/potion_bottle_weaving.png","items/potion_bottle_windCharged.png","items/potion_bottle_wither.png","items/potion_overlay.png","items/prismarine_crystals.png","items/prismarine_shard.png","items/prize_pottery_sherd.png","items/pumpkin_pie.png","items/quartz.png","items/quiver.png","items/rabbit_cooked.png","items/rabbit_foot.png","items/rabbit_hide.png","items/rabbit_raw.png","items/rabbit_stew.png","items/raiser_armor_trim_smithing_template.png","items/raw_copper.png","items/raw_gold.png","items/raw_iron.png","items/record_11.png","items/record_13.png","items/record_5.png","items/record_blocks.png","items/record_cat.png","items/record_chirp.png","items/record_far.png","items/record_mall.png","items/record_mellohi.png","items/record_otherside.png","items/record_pigstep.png","items/record_stal.png","items/record_strad.png","items/record_wait.png","items/record_ward.png","items/recovery_compass_atlas.png","items/recovery_compass_item.png","items/redstone_dust.png","items/reeds.png","items/repeater.png","items/resin_brick.png","items/resin_clump.png","items/rib_armor_trim_smithing_template.png","items/rotten_flesh.png","items/ruby.png","items/saddle.png","items/scrape_pottery_sherd.png","items/sea_pickle.png","items/seeds_beetroot.png","items/seeds_melon.png","items/seeds_pumpkin.png","items/seeds_wheat.png","items/sentry_armor_trim_smithing_template.png","items/shaper_armor_trim_smithing_template.png","items/sheaf_pottery_sherd.png","items/shears.png","items/shelter_pottery_sherd.png","items/shulker_shell.png","items/sign.png","items/sign_acacia.png","items/sign_birch.png","items/sign_crimson.png","items/sign_darkoak.png","items/sign_jungle.png","items/sign_spruce.png","items/sign_warped.png","items/silence_armor_trim_smithing_template.png","items/skull_banner_pattern.png","items/skull_pottery_sherd.png","items/slimeball.png","items/sniffer_egg.png","items/snort_pottery_sherd.png","items/snout_armor_trim_smithing_template.png","items/snowball.png","items/soul_campfire.png","items/soul_lantern.png","items/spawn_egg.png","items/spawn_egg_overlay.png","items/spawn_eggs/spawn_egg_agent.png","items/spawn_eggs/spawn_egg_allay.png","items/spawn_eggs/spawn_egg_armadillo.png","items/spawn_eggs/spawn_egg_axolotl.png","items/spawn_eggs/spawn_egg_bat.png","items/spawn_eggs/spawn_egg_bee.png","items/spawn_eggs/spawn_egg_blaze.png","items/spawn_eggs/spawn_egg_bogged.png","items/spawn_eggs/spawn_egg_breeze.png","items/spawn_eggs/spawn_egg_camel.png","items/spawn_eggs/spawn_egg_camel_husk.png","items/spawn_eggs/spawn_egg_cat.png","items/spawn_eggs/spawn_egg_cave_spider.png","items/spawn_eggs/spawn_egg_chicken.png","items/spawn_eggs/spawn_egg_cod.png","items/spawn_eggs/spawn_egg_copper_golem.png","items/spawn_eggs/spawn_egg_cow.png","items/spawn_eggs/spawn_egg_creaking.png","items/spawn_eggs/spawn_egg_creeper.png","items/spawn_eggs/spawn_egg_dolphin.png","items/spawn_eggs/spawn_egg_donkey.png","items/spawn_eggs/spawn_egg_drowned.png","items/spawn_eggs/spawn_egg_elder_guardian.png","items/spawn_eggs/spawn_egg_ender_dragon.png","items/spawn_eggs/spawn_egg_enderman.png","items/spawn_eggs/spawn_egg_endermite.png","items/spawn_eggs/spawn_egg_evoker.png","items/spawn_eggs/spawn_egg_fox.png","items/spawn_eggs/spawn_egg_frog.png","items/spawn_eggs/spawn_egg_ghast.png","items/spawn_eggs/spawn_egg_glow_squid.png","items/spawn_eggs/spawn_egg_goat.png","items/spawn_eggs/spawn_egg_guardian.png","items/spawn_eggs/spawn_egg_happy_ghast.png","items/spawn_eggs/spawn_egg_hoglin.png","items/spawn_eggs/spawn_egg_horse.png","items/spawn_eggs/spawn_egg_husk.png","items/spawn_eggs/spawn_egg_iron_golem.png","items/spawn_eggs/spawn_egg_llama.png","items/spawn_eggs/spawn_egg_magma_cube.png","items/spawn_eggs/spawn_egg_mooshroom.png","items/spawn_eggs/spawn_egg_mule.png","items/spawn_eggs/spawn_egg_nautilus.png","items/spawn_eggs/spawn_egg_ocelot.png","items/spawn_eggs/spawn_egg_panda.png","items/spawn_eggs/spawn_egg_parched.png","items/spawn_eggs/spawn_egg_parrot.png","items/spawn_eggs/spawn_egg_phantom.png","items/spawn_eggs/spawn_egg_pig.png","items/spawn_eggs/spawn_egg_piglin.png","items/spawn_eggs/spawn_egg_piglin_brute.png","items/spawn_eggs/spawn_egg_pillager.png","items/spawn_eggs/spawn_egg_polar_bear.png","items/spawn_eggs/spawn_egg_pufferfish.png","items/spawn_eggs/spawn_egg_rabbit.png","items/spawn_eggs/spawn_egg_ravager.png","items/spawn_eggs/spawn_egg_salmon.png","items/spawn_eggs/spawn_egg_sheep.png","items/spawn_eggs/spawn_egg_shulker.png","items/spawn_eggs/spawn_egg_silverfish.png","items/spawn_eggs/spawn_egg_skeleton.png","items/spawn_eggs/spawn_egg_skeleton_horse.png","items/spawn_eggs/spawn_egg_slime.png","items/spawn_eggs/spawn_egg_sniffer.png","items/spawn_eggs/spawn_egg_snow_golem.png","items/spawn_eggs/spawn_egg_spider.png","items/spawn_eggs/spawn_egg_squid.png","items/spawn_eggs/spawn_egg_stray.png","items/spawn_eggs/spawn_egg_strider.png","items/spawn_eggs/spawn_egg_tadpole.png","items/spawn_eggs/spawn_egg_trader_llama.png","items/spawn_eggs/spawn_egg_tropicalfish.png","items/spawn_eggs/spawn_egg_turtle.png","items/spawn_eggs/spawn_egg_vex.png","items/spawn_eggs/spawn_egg_villager.png","items/spawn_eggs/spawn_egg_vindicator.png","items/spawn_eggs/spawn_egg_wandering_trader.png","items/spawn_eggs/spawn_egg_warden.png","items/spawn_eggs/spawn_egg_witch.png","items/spawn_eggs/spawn_egg_wither.png","items/spawn_eggs/spawn_egg_wither_skeleton.png","items/spawn_eggs/spawn_egg_wolf.png","items/spawn_eggs/spawn_egg_zoglin.png","items/spawn_eggs/spawn_egg_zombie.png","items/spawn_eggs/spawn_egg_zombie_horse.png","items/spawn_eggs/spawn_egg_zombie_nautilus.png","items/spawn_eggs/spawn_egg_zombie_villager.png","items/spawn_eggs/spawn_egg_zombified_piglin.png","items/spear/copper_spear.png","items/spear/diamond_spear.png","items/spear/gold_spear.png","items/spear/iron_spear.png","items/spear/netherite_spear.png","items/spear/stone_spear.png","items/spear/wood_spear.png","items/spider_eye.png","items/spider_eye_fermented.png","items/spire_armor_trim_smithing_template.png","items/spruce_chest_boat.png","items/spruce_hanging_sign.png","items/spyglass.png","items/stick.png","items/stone_axe.png","items/stone_hoe.png","items/stone_pickaxe.png","items/stone_shovel.png","items/stone_sword.png","items/string.png","items/sugar.png","items/suspicious_stew.png","items/sweet_berries.png","items/tide_armor_trim_smithing_template.png","items/tipped_arrow.png","items/tipped_arrow_base.png","items/tipped_arrow_fireres.png","items/tipped_arrow_harm.png","items/tipped_arrow_head.png","items/tipped_arrow_healing.png","items/tipped_arrow_infested.png","items/tipped_arrow_invisibility.png","items/tipped_arrow_leaping.png","items/tipped_arrow_luck.png","items/tipped_arrow_nightvision.png","items/tipped_arrow_oozing.png","items/tipped_arrow_poison.png","items/tipped_arrow_regen.png","items/tipped_arrow_slow.png","items/tipped_arrow_slowfalling.png","items/tipped_arrow_strength.png","items/tipped_arrow_swift.png","items/tipped_arrow_turtlemaster.png","items/tipped_arrow_waterbreathing.png","items/tipped_arrow_weakness.png","items/tipped_arrow_weaving.png","items/tipped_arrow_windCharged.png","items/tipped_arrow_wither.png","items/torchflower_seeds.png","items/totem.png","items/trial_key.png","items/trident.png","items/turtle_egg.png","items/turtle_helmet.png","items/turtle_shell_piece.png","items/vex_armor_trim_smithing_template.png","items/villagebell.png","items/ward_armor_trim_smithing_template.png","items/warped_door.png","items/warped_fungus_on_a_stick.png","items/warped_hanging_sign.png","items/watch_atlas.png","items/wayfinder_armor_trim_smithing_template.png","items/weathered_copper_chain.png","items/weathered_copper_door.png","items/weathered_copper_lantern.png","items/wheat.png","items/wild_armor_trim_smithing_template.png","items/wildflowers.png","items/wind_charge.png","items/wolf_armor.png","items/wood_axe.png","items/wood_hoe.png","items/wood_pickaxe.png","items/wood_shovel.png","items/wood_sword.png"],"misc":["misc/enchanted_actor_glint.png","misc/enchanted_item_glint.png","misc/missing_texture.png","misc/pumpkinblur.png"],"particle":["particle/biome_tinted_leaves_atlas.png","particle/campfire_smoke.png","particle/cherry_petal_atlas.png","particle/gust.png","particle/infested.png","particle/ominous_spawning.png","particle/pale_oak_leaves_atlas.png","particle/particles.png","particle/pixel.png","particle/raid_omen.png","particle/sculk_charge.png","particle/sculk_charge_pop.png","particle/sculk_soul.png","particle/shriek.png","particle/small_gust.png","particle/sonic_explosion.png","particle/soul.png","particle/trial_omen.png","particle/vault_connection.png","particle/vibration_signal.png"]};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let currentTool = 'pencil';
+let currentColor = {r:255,g:85,b:0,a:255};
+let zoom = 8;
+let gridOn = true;
+let currentCategory = 'blocks';
+let currentTexturePath = null;
+let isDrawing = false;
+let canvasW = 0, canvasH = 0;
+let undoStack = [], redoStack = [];
+let startPx = null, startPy = null;
+let previewImageData = null;
+let palette = [
+  '#ff0000','#ff8800','#ffff00','#00ff00',
+  '#0088ff','#8800ff','#ff00ff','#ffffff',
+  '#aaaaaa','#555555','#000000','#884400',
+  '#00ffff','#ff4444','#44ff44','#4444ff'
+];
+let modifiedTextures = {}; // path -> ImageData
+
+// ═══════════════════════════════════════════════
+// UUID
+// ═══════════════════════════════════════════════
+function genUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0,v=c==='x'?r:(r&0x3|0x8);
+    return v.toString(16);
+  });
+}
+let packUUID1 = genUUID(), packUUID2 = genUUID();
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+const mainCanvas = document.getElementById('main-canvas');
+const overlayCanvas = document.getElementById('overlay-canvas');
+const ctx = mainCanvas.getContext('2d');
+const octx = overlayCanvas.getContext('2d');
+
+function init() {
+  buildCatTabs();
+  setCategory('blocks');
+  buildPalette();
+  updateColorUI();
+  document.getElementById('pack-uuid1').value = packUUID1;
+  document.getElementById('pack-uuid2').value = packUUID2;
+  document.addEventListener('keydown', onKeyDown);
+}
+
+// ═══════════════════════════════════════════════
+// CATEGORY TABS
+// ═══════════════════════════════════════════════
+function buildCatTabs() {
+  const tabs = document.getElementById('cat-tabs');
+  const cats = ['blocks','items','entity','environment','particle','misc','colormap'];
+  cats.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-tab' + (c === currentCategory ? ' active' : '');
+    btn.textContent = c;
+    btn.onclick = () => setCategory(c);
+    btn.id = 'cattab-' + c;
+    tabs.appendChild(btn);
+  });
+}
+
+function setCategory(cat) {
+  currentCategory = cat;
+  document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
+  const t = document.getElementById('cattab-' + cat);
+  if (t) t.classList.add('active');
+  document.getElementById('search').value = '';
+  renderTextureList(MANIFEST[cat] || []);
+}
+
+function filterTextures() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const all = MANIFEST[currentCategory] || [];
+  const filtered = q ? all.filter(p => p.toLowerCase().includes(q)) : all;
+  renderTextureList(filtered);
+}
+
+function renderTextureList(paths) {
+  const list = document.getElementById('texture-list');
+  list.innerHTML = '';
+  document.getElementById('tex-count').textContent = paths.length + ' textures';
+  paths.forEach(path => {
+    const item = document.createElement('div');
+    item.className = 'tex-item' + (path === currentTexturePath ? ' active' : '');
+    item.dataset.path = path;
+    const img = document.createElement('img');
+    img.className = 'tex-thumb';
+    img.src = 'textures/' + path;
+    img.onerror = () => { img.style.opacity = '0.3'; img.src = ''; };
+    const name = document.createElement('div');
+    name.className = 'tex-name';
+    const parts = path.split('/');
+    name.textContent = parts[parts.length-1].replace('.png','');
+    name.title = path;
+    item.appendChild(img);
+    item.appendChild(name);
+    item.onclick = () => loadTexture(path);
+    list.appendChild(item);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// LOAD TEXTURE FROM SERVER
+// ═══════════════════════════════════════════════
+function loadTexture(path) {
+  currentTexturePath = path;
+  document.querySelectorAll('.tex-item').forEach(i => {
+    i.classList.toggle('active', i.dataset.path === path);
+  });
+  document.getElementById('no-texture').style.display = 'none';
+  document.getElementById('st-texture').textContent = path.split('/').pop().replace('.png','');
+
+  // If we have a modified version, use that
+  if (modifiedTextures[path]) {
+    setCanvasFromImageData(modifiedTextures[path]);
+    return;
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = 'textures/' + path + '?t=' + Date.now();
+  img.onload = () => {
+    canvasW = img.naturalWidth;
+    canvasH = img.naturalHeight;
+    setupCanvases();
+    ctx.clearRect(0,0,canvasW,canvasH);
+    ctx.drawImage(img,0,0);
+    pushUndo();
+    document.getElementById('st-size').textContent = canvasW + '×' + canvasH;
+    drawGrid();
+  };
+  img.onerror = () => {
+    toast('⚠ Could not load texture. Is the textures/ folder next to this HTML file?', 4000);
+  };
+}
+
+function setCanvasFromImageData(imageData) {
+  canvasW = imageData.width;
+  canvasH = imageData.height;
+  setupCanvases();
+  ctx.putImageData(imageData, 0, 0);
+  document.getElementById('st-size').textContent = canvasW + '×' + canvasH;
+  pushUndo();
+  drawGrid();
+}
+
+function setupCanvases() {
+  mainCanvas.width = canvasW;
+  mainCanvas.height = canvasH;
+  overlayCanvas.width = canvasW;
+  overlayCanvas.height = canvasH;
+  updateZoom();
+}
+
+// ═══════════════════════════════════════════════
+// ZOOM
+// ═══════════════════════════════════════════════
+function updateZoom() {
+  mainCanvas.style.width = (canvasW * zoom) + 'px';
+  mainCanvas.style.height = (canvasH * zoom) + 'px';
+  overlayCanvas.style.width = (canvasW * zoom) + 'px';
+  overlayCanvas.style.height = (canvasH * zoom) + 'px';
+  // Position overlay on top of canvas
+  const rect = mainCanvas.getBoundingClientRect();
+  overlayCanvas.style.position = 'absolute';
+  document.getElementById('zoom-label').textContent = zoom + 'x';
+  document.getElementById('st-zoom').textContent = zoom + 'x';
+  drawGrid();
+}
+
+function changeZoom(dir) {
+  const levels = [1,2,4,6,8,12,16,24,32,48,64];
+  const idx = levels.indexOf(zoom);
+  const newIdx = Math.max(0, Math.min(levels.length-1, idx + dir));
+  zoom = levels[newIdx];
+  updateZoom();
+}
+
+// ═══════════════════════════════════════════════
+// GRID
+// ═══════════════════════════════════════════════
+function toggleGrid() {
+  gridOn = !gridOn;
+  document.getElementById('grid-btn').classList.toggle('active', gridOn);
+  drawGrid();
+}
+
+function drawGrid() {
+  if (!canvasW) return;
+  octx.clearRect(0,0,canvasW,canvasH);
+  if (!gridOn || zoom < 4) return;
+  octx.strokeStyle = 'rgba(255,255,255,0.12)';
+  octx.lineWidth = 1/zoom;
+  for (let x=0; x<=canvasW; x++) {
+    octx.beginPath(); octx.moveTo(x,0); octx.lineTo(x,canvasH); octx.stroke();
+  }
+  for (let y=0; y<=canvasH; y++) {
+    octx.beginPath(); octx.moveTo(0,y); octx.lineTo(canvasW,y); octx.stroke();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// TOOLS
+// ═══════════════════════════════════════════════
+function setTool(tool) {
+  currentTool = tool;
+  document.querySelectorAll('.tool-btn[id^=tool-]').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('tool-' + tool);
+  if (btn) btn.classList.add('active');
+  document.getElementById('st-tool').textContent = tool.charAt(0).toUpperCase()+tool.slice(1);
+  mainCanvas.style.cursor = tool === 'dropper' ? 'crosshair' : 'crosshair';
+}
+
+function getCanvasPos(e) {
+  const rect = mainCanvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / zoom);
+  const y = Math.floor((e.clientY - rect.top) / zoom);
+  return {x, y};
+}
+
+function colorStr(c) {
+  return `rgba(${c.r},${c.g},${c.b},${c.a/255})`;
+}
+
+function drawPixel(x, y) {
+  if (x<0||y<0||x>=canvasW||y>=canvasH) return;
+  const size = parseInt(document.getElementById('brush-size').value);
+  ctx.fillStyle = currentTool === 'eraser' ? 'rgba(0,0,0,0)' : colorStr(currentColor);
+  if (currentTool === 'eraser') {
+    ctx.clearRect(x - Math.floor(size/2), y - Math.floor(size/2), size, size);
+  } else {
+    ctx.globalAlpha = currentColor.a/255;
+    ctx.fillRect(x - Math.floor(size/2), y - Math.floor(size/2), size, size);
+    ctx.globalAlpha = 1;
+  }
+}
+
+function floodFill(px, py, fillColor) {
+  const imageData = ctx.getImageData(0,0,canvasW,canvasH);
+  const data = imageData.data;
+  const idx = (py * canvasW + px) * 4;
+  const tr = data[idx], tg = data[idx+1], tb = data[idx+2], ta = data[idx+3];
+  const fr = fillColor.r, fg = fillColor.g, fb = fillColor.b, fa = fillColor.a;
+  if (tr===fr&&tg===fg&&tb===fb&&ta===fa) return;
+  const stack = [[px,py]];
+  const visited = new Uint8Array(canvasW*canvasH);
+  while (stack.length) {
+    const [x,y] = stack.pop();
+    if (x<0||y<0||x>=canvasW||y>=canvasH) continue;
+    const i = y*canvasW+x;
+    if (visited[i]) continue;
+    const di = i*4;
+    if (data[di]!==tr||data[di+1]!==tg||data[di+2]!==tb||data[di+3]!==ta) continue;
+    visited[i]=1;
+    data[di]=fr; data[di+1]=fg; data[di+2]=fb; data[di+3]=fa;
+    stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
+  }
+  ctx.putImageData(imageData,0,0);
+}
+
+function pickColor(x,y) {
+  const d = ctx.getImageData(x,y,1,1).data;
+  currentColor = {r:d[0],g:d[1],b:d[2],a:d[3]};
+  updateColorUI();
+  toast('Color picked: ' + rgbaToHex(currentColor));
+  setTool('pencil');
+}
+
+// Line drawing helper
+function drawLine(x0,y0,x1,y1) {
+  const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0);
+  const sx=x0<x1?1:-1,sy=y0<y1?1:-1;
+  let err=dx-dy;
+  while(true){
+    drawPixel(x0,y0);
+    if(x0===x1&&y0===y1) break;
+    const e2=2*err;
+    if(e2>-dy){err-=dy;x0+=sx;}
+    if(e2<dx){err+=dx;y0+=sy;}
+  }
+}
+
+// ═══════════════════════════════════════════════
+// MOUSE EVENTS
+// ═══════════════════════════════════════════════
+mainCanvas.addEventListener('mousedown', e => {
+  if (!canvasW) return;
+  const {x,y} = getCanvasPos(e);
+  isDrawing = true;
+  startPx = x; startPy = y;
+
+  if (currentTool === 'dropper') { pickColor(x,y); isDrawing=false; return; }
+  if (currentTool === 'fill') { pushUndo(); floodFill(x,y,currentColor); saveModified(); return; }
+  if (currentTool === 'pencil' || currentTool === 'eraser') { pushUndo(); drawPixel(x,y); saveModified(); }
+  if (currentTool === 'rect' || currentTool === 'line') {
+    previewImageData = ctx.getImageData(0,0,canvasW,canvasH);
+  }
+});
+
+mainCanvas.addEventListener('mousemove', e => {
+  if (!canvasW) return;
+  const {x,y} = getCanvasPos(e);
+  updatePixelInfo(x,y);
+  if (!isDrawing) return;
+
+  if (currentTool === 'pencil' || currentTool === 'eraser') {
+    drawPixel(x,y);
+    saveModified();
+  }
+  if (currentTool === 'rect' && previewImageData) {
+    ctx.putImageData(previewImageData,0,0);
+    ctx.strokeStyle = colorStr(currentColor);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(startPx+.5, startPy+.5, x-startPx, y-startPy);
+  }
+  if (currentTool === 'line' && previewImageData) {
+    ctx.putImageData(previewImageData,0,0);
+    ctx.strokeStyle = colorStr(currentColor);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(startPx+.5,startPy+.5); ctx.lineTo(x+.5,y+.5); ctx.stroke();
+  }
+});
+
+mainCanvas.addEventListener('mouseup', e => {
+  if (!isDrawing) return;
+  isDrawing = false;
+  const {x,y} = getCanvasPos(e);
+  if ((currentTool === 'rect' || currentTool === 'line') && previewImageData) {
+    ctx.putImageData(previewImageData,0,0);
+    pushUndo();
+    if (currentTool === 'rect') {
+      ctx.strokeStyle = colorStr(currentColor);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(startPx+.5, startPy+.5, x-startPx, y-startPy);
+    } else {
+      drawLine(startPx,startPy,x,y);
+    }
+    previewImageData = null;
+    saveModified();
+  }
+});
+
+mainCanvas.addEventListener('mouseleave', () => {
+  document.getElementById('px-x').textContent = '-';
+  document.getElementById('px-y').textContent = '-';
+  document.getElementById('px-rgba').textContent = '-';
+  document.getElementById('px-hex').textContent = '-';
+});
+
+// Mouse wheel zoom
+document.getElementById('canvas-wrap').addEventListener('wheel', e => {
+  e.preventDefault();
+  changeZoom(e.deltaY < 0 ? 1 : -1);
+}, {passive:false});
+
+// ═══════════════════════════════════════════════
+// PIXEL INFO
+// ═══════════════════════════════════════════════
+function updatePixelInfo(x,y) {
+  if (x<0||y<0||x>=canvasW||y>=canvasH) return;
+  document.getElementById('px-x').textContent = x;
+  document.getElementById('px-y').textContent = y;
+  const d = ctx.getImageData(x,y,1,1).data;
+  document.getElementById('px-rgba').textContent = `${d[0]},${d[1]},${d[2]},${d[3]}`;
+  document.getElementById('px-hex').textContent = '#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+
+// ═══════════════════════════════════════════════
+// COLOR
+// ═══════════════════════════════════════════════
+function rgbaToHex(c) {
+  return '#'+[c.r,c.g,c.b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+
+function hexToRgb(hex) {
+  hex = hex.replace('#','');
+  if (hex.length===3) hex=hex.split('').map(c=>c+c).join('');
+  const n = parseInt(hex,16);
+  return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};
+}
+
+function updateColorUI() {
+  const hex = rgbaToHex(currentColor);
+  const preview = document.getElementById('color-preview');
+  preview.style.background = colorStr(currentColor);
+  document.getElementById('color-hex').value = hex;
+  document.getElementById('real-color-input').value = hex;
+  document.getElementById('sl-r').value = currentColor.r; document.getElementById('lbl-r').textContent = currentColor.r;
+  document.getElementById('sl-g').value = currentColor.g; document.getElementById('lbl-g').textContent = currentColor.g;
+  document.getElementById('sl-b').value = currentColor.b; document.getElementById('lbl-b').textContent = currentColor.b;
+  document.getElementById('sl-a').value = currentColor.a; document.getElementById('lbl-a').textContent = currentColor.a;
+}
+
+function openColorPicker() {
+  document.getElementById('real-color-input').click();
+}
+
+function nativeColorChanged() {
+  const hex = document.getElementById('real-color-input').value;
+  const rgb = hexToRgb(hex);
+  currentColor.r=rgb.r; currentColor.g=rgb.g; currentColor.b=rgb.b;
+  updateColorUI();
+}
+
+function hexChanged() {
+  const hex = document.getElementById('color-hex').value;
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  const rgb = hexToRgb(hex);
+  currentColor.r=rgb.r; currentColor.g=rgb.g; currentColor.b=rgb.b;
+  updateColorUI();
+}
+
+function sliderChanged() {
+  currentColor.r = parseInt(document.getElementById('sl-r').value);
+  currentColor.g = parseInt(document.getElementById('sl-g').value);
+  currentColor.b = parseInt(document.getElementById('sl-b').value);
+  currentColor.a = parseInt(document.getElementById('sl-a').value);
+  document.getElementById('lbl-r').textContent = currentColor.r;
+  document.getElementById('lbl-g').textContent = currentColor.g;
+  document.getElementById('lbl-b').textContent = currentColor.b;
+  document.getElementById('lbl-a').textContent = currentColor.a;
+  updateColorUI();
+}
+
+// ═══════════════════════════════════════════════
+// PALETTE
+// ═══════════════════════════════════════════════
+function buildPalette() {
+  const grid = document.getElementById('palette-grid');
+  grid.innerHTML = '';
+  palette.forEach((hex, i) => {
+    const sw = document.createElement('div');
+    sw.className = 'pal-swatch';
+    sw.style.background = hex;
+    sw.title = hex;
+    sw.onclick = () => {
+      const rgb = hexToRgb(hex);
+      currentColor.r=rgb.r; currentColor.g=rgb.g; currentColor.b=rgb.b;
+      updateColorUI();
+    };
+    sw.oncontextmenu = e => {
+      e.preventDefault();
+      palette.splice(i,1);
+      buildPalette();
+    };
+    grid.appendChild(sw);
+  });
+}
+
+function addToPalette() {
+  const hex = rgbaToHex(currentColor);
+  if (!palette.includes(hex)) { palette.push(hex); buildPalette(); }
+}
+
+// ═══════════════════════════════════════════════
+// UNDO/REDO
+// ═══════════════════════════════════════════════
+function pushUndo() {
+  if (!canvasW) return;
+  undoStack.push(ctx.getImageData(0,0,canvasW,canvasH));
+  if (undoStack.length > 50) undoStack.shift();
+  redoStack = [];
+}
+
+function undoAction() {
+  if (undoStack.length < 2) return;
+  redoStack.push(undoStack.pop());
+  ctx.putImageData(undoStack[undoStack.length-1],0,0);
+  saveModified();
+}
+
+function redoAction() {
+  if (!redoStack.length) return;
+  const state = redoStack.pop();
+  undoStack.push(state);
+  ctx.putImageData(state,0,0);
+  saveModified();
+}
+
+// ═══════════════════════════════════════════════
+// TRANSFORMS
+// ═══════════════════════════════════════════════
+function flipH() {
+  if (!canvasW) return;
+  pushUndo();
+  const tmp = document.createElement('canvas');
+  tmp.width=canvasW; tmp.height=canvasH;
+  const tc = tmp.getContext('2d');
+  tc.translate(canvasW,0); tc.scale(-1,1);
+  tc.drawImage(mainCanvas,0,0);
+  ctx.clearRect(0,0,canvasW,canvasH);
+  ctx.drawImage(tmp,0,0);
+  saveModified();
+}
+
+function flipV() {
+  if (!canvasW) return;
+  pushUndo();
+  const tmp = document.createElement('canvas');
+  tmp.width=canvasW; tmp.height=canvasH;
+  const tc = tmp.getContext('2d');
+  tc.translate(0,canvasH); tc.scale(1,-1);
+  tc.drawImage(mainCanvas,0,0);
+  ctx.clearRect(0,0,canvasW,canvasH);
+  ctx.drawImage(tmp,0,0);
+  saveModified();
+}
+
+function rotCW() {
+  if (!canvasW) return;
+  pushUndo();
+  const tmp = document.createElement('canvas');
+  tmp.width=canvasH; tmp.height=canvasW;
+  const tc = tmp.getContext('2d');
+  tc.translate(canvasH,0); tc.rotate(Math.PI/2);
+  tc.drawImage(mainCanvas,0,0);
+  canvasW=tmp.width; canvasH=tmp.height;
+  mainCanvas.width=canvasW; mainCanvas.height=canvasH;
+  overlayCanvas.width=canvasW; overlayCanvas.height=canvasH;
+  ctx.drawImage(tmp,0,0);
+  document.getElementById('st-size').textContent = canvasW + '×' + canvasH;
+  updateZoom();
+  saveModified();
+}
+
+// ═══════════════════════════════════════════════
+// CLEAR
+// ═══════════════════════════════════════════════
+function clearCanvas() {
+  if (!canvasW) return;
+  pushUndo();
+  ctx.clearRect(0,0,canvasW,canvasH);
+  saveModified();
+}
+
+// ═══════════════════════════════════════════════
+// SAVE MODIFIED STATE
+// ═══════════════════════════════════════════════
+function saveModified() {
+  if (!currentTexturePath || !canvasW) return;
+  modifiedTextures[currentTexturePath] = ctx.getImageData(0,0,canvasW,canvasH);
+}
+
+// ═══════════════════════════════════════════════
+// IMPORT
+// ═══════════════════════════════════════════════
+function importTexture() {
+  document.getElementById('import-file').click();
+}
+
+function loadImportedFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = new Image();
+    img.onload = () => {
+      canvasW=img.naturalWidth; canvasH=img.naturalHeight;
+      setupCanvases();
+      ctx.clearRect(0,0,canvasW,canvasH);
+      ctx.drawImage(img,0,0);
+      document.getElementById('no-texture').style.display = 'none';
+      document.getElementById('st-texture').textContent = file.name;
+      document.getElementById('st-size').textContent = canvasW+'×'+canvasH;
+      pushUndo();
+      drawGrid();
+      if (!currentTexturePath) currentTexturePath = 'custom/' + file.name;
+      saveModified();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT .mcpack (ZIP with JSZip)
+// ═══════════════════════════════════════════════
+function exportMcpack() {
+  if (!canvasW) { toast('⚠ No texture loaded to export'); return; }
+
+  const name = document.getElementById('pack-name').value || 'MyTexturePack';
+  const desc = document.getElementById('pack-desc').value || 'A texture pack';
+  const version = document.getElementById('pack-version').value || '1.0.0';
+  const ver = version.split('.').map(Number);
+
+  const manifest = {
+    format_version: 2,
+    header: {
+      name, description: desc,
+      uuid: packUUID1,
+      version: ver,
+      min_engine_version: [1,16,0]
+    },
+    modules: [{
+      type: 'resources',
+      uuid: packUUID2,
+      version: ver
+    }]
+  };
+
+  // Load JSZip
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  script.onload = () => doExport(manifest, name);
+  document.head.appendChild(script);
+}
+
+function doExport(manifest, packName) {
+  const zip = new JSZip();
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+  // Pack icon
+  const iconCanvas = document.createElement('canvas');
+  iconCanvas.width = 64; iconCanvas.height = 64;
+  const ic = iconCanvas.getContext('2d');
+  ic.imageSmoothingEnabled = false;
+  if (canvasW > 0) ic.drawImage(mainCanvas,0,0,64,64);
+  else { ic.fillStyle='#7c3aed'; ic.fillRect(0,0,64,64); }
+
+  const pending = [];
+
+  // Add icon
+  pending.push(new Promise(res => {
+    iconCanvas.toBlob(blob => {
+      zip.file('pack_icon.png', blob);
+      res();
+    }, 'image/png');
+  }));
+
+  // Add all modified textures
+  for (const [path, imageData] of Object.entries(modifiedTextures)) {
+    pending.push(new Promise(res => {
+      const tc = document.createElement('canvas');
+      tc.width = imageData.width; tc.height = imageData.height;
+      tc.getContext('2d').putImageData(imageData, 0, 0);
+      tc.toBlob(blob => {
+        zip.file('textures/' + path, blob);
+        res();
+      }, 'image/png');
+    }));
+  }
+
+  Promise.all(pending).then(() => {
+    zip.generateAsync({type:'blob'}).then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = packName.replace(/[^a-zA-Z0-9_-]/g,'_') + '.mcpack';
+      a.click();
+      toast('✅ Exported ' + Object.keys(modifiedTextures).length + ' texture(s) as .mcpack!', 3000);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════
+// PACK META
+// ═══════════════════════════════════════════════
+let metaVisible = false;
+function showMeta() {
+  metaVisible = !metaVisible;
+  document.getElementById('meta-panel').style.display = metaVisible ? 'block' : 'none';
+  document.querySelector('[onclick="showMeta()"]').classList.toggle('active', metaVisible);
+}
+
+function regenUUIDs() {
+  packUUID1 = genUUID(); packUUID2 = genUUID();
+  document.getElementById('pack-uuid1').value = packUUID1;
+  document.getElementById('pack-uuid2').value = packUUID2;
+  toast('🔄 New UUIDs generated');
+}
+
+// ═══════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════
+function onKeyDown(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undoAction(); }
+  if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redoAction(); }
+  if (!e.ctrlKey) {
+    if (e.key === 'p' || e.key === 'P') setTool('pencil');
+    if (e.key === 'e' || e.key === 'E') setTool('eraser');
+    if (e.key === 'f' || e.key === 'F') setTool('fill');
+    if (e.key === 'd' || e.key === 'D') setTool('dropper');
+    if (e.key === 'r' || e.key === 'R') setTool('rect');
+    if (e.key === 'l' || e.key === 'L') setTool('line');
+    if (e.key === 'g' || e.key === 'G') toggleGrid();
+    if (e.key === '+' || e.key === '=') changeZoom(1);
+    if (e.key === '-') changeZoom(-1);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+let toastTimer;
+function toast(msg, dur=2000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ═══════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════
+init();
+</script>
+</body>
+</html>
