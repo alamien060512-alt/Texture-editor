@@ -1,27 +1,11 @@
-name: Rewrite Full Texture Manifest Paths
-
-on:
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  rewrite-json:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Add Path Extensions
+- name: Copy all game textures to root for web editor
         run: |
-          # This replaces "textures/" with "textures/resourcepacks/textures/" across all 2821 items
-          sed -i 's|"textures/|"textures/resourcepacks/textures/|g' texture_manifest.json
-
-      - name: Save and Commit Text File
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@://github.com"
-          git add texture_manifest.json
-          git commit -m "Automated fix: Updated all 2821 paths in texture_manifest.json"
-          git push
+          # Check if the deep textures directory exists
+          if [ -d "textures/resource_pack/textures" ]; then
+            echo "Copying textures to root folder..."
+            # Copy all folders and files from inside the deep textures folder into the root
+            cp -r textures/resource_pack/textures/* ./
+          else
+            echo "Error: Texture folder path not found!"
+            exit 1
+          fi
