@@ -1,7 +1,11 @@
 name: Fix Texture Folder Structure
 
 on:
-  workflow_dispatch: # Allows you to trigger this manually from your phone's browser
+  workflow_dispatch: # Allows manual trigger from your browser
+
+# Fixes Exit Code 128 by giving the script permission to write changes
+permissions:
+  contents: write
 
 jobs:
   move-files:
@@ -28,4 +32,3 @@ jobs:
           git add textures
           git commit -m "Automated fix: Flattened textures folder structure"
           git push
-
