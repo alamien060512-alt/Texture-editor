@@ -1,34 +1,27 @@
-name: Fix Texture Folder Structure
+name: Rewrite Full Texture Manifest Paths
 
 on:
-  workflow_dispatch: # Allows manual trigger from your browser
+  workflow_dispatch:
 
-# Fixes Exit Code 128 by giving the script permission to write changes
 permissions:
   contents: write
 
 jobs:
-  move-files:
+  rewrite-json:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Restructure Folders
+      - name: Add Path Extensions
         run: |
-          # 1. Move the deep textures folder to a temporary spot
-          git mv textures/resourcepacks/textures temp_textures
-          
-          # 2. Remove the old messy directory structure
-          git rm -r textures
-          
-          # 3. Rename the temporary folder to the clean root 'textures'
-          git mv temp_textures textures
+          # This replaces "textures/" with "textures/resourcepacks/textures/" across all 2821 items
+          sed -i 's|"textures/|"textures/resourcepacks/textures/|g' texture_manifest.json
 
-      - name: Commit and Push Changes
+      - name: Save and Commit Text File
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@://github.com"
-          git add textures
-          git commit -m "Automated fix: Flattened textures folder structure"
+          git add texture_manifest.json
+          git commit -m "Automated fix: Updated all 2821 paths in texture_manifest.json"
           git push
